@@ -1,0 +1,48 @@
+apiVersion: run.ai/v1
+kind: RunaiJob
+metadata:
+  name: <pod_name> # MUST BE SAME NAME of the "release" label under spec>templace>label bellow in order to get logs into the Run:AI dashboard
+  labels:
+    # priorityClassName: "build" # Interactive Job if present, for Train Job REMOVE this line
+    user: <gaspar_id>  # AC: for me it's chiappa
+spec:
+  template:
+    metadata:
+      labels:
+        user: <firstname.lastname> # User e.g. firstname.lastname - AC for me alberto.chiappa
+        release: <pod_name> # MUST BE SAME NAME of your pod "name" specify in the metadata above in order to get logs into the Run:AI dashboard
+    spec:
+      hostIPC: true
+      schedulerName: runai-scheduler
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 174516 # insert uid found in people.epfl in admistrative data
+        runAsGroup: 79678 # 11334 # insert gid as found in people.epfl in admistrative data
+        fsGroup: 79678  # 11334
+      containers:
+      - name: <container_name>  # not really important
+        image: <docker_image> # registry.rcp.epfl.ch/LAB/FOLDER/IMAGE:VERSION or to a dockerhub image, e.g.: albertochiappa/myo-cuda
+        workingDir : /
+        command: ["/bin/bash"]
+        args:
+        - "-c"
+        - 'sleep 10'  # Executing this command keeps the container active for 10 mins without doing nothing - to test
+        # env:  # only if you want to use a default conda environment - I am not using it at the moment
+        #   - name: HOME
+        #     value: "/PATH/TO/HOMEDIR"
+        #   - name: PYTHONPATH
+        #     value: "/PATH/TO/PYLIB1:/PATH/TO/PYLIB2:/PATH/TO/PYLIB3"
+        # volumeMounts:
+        #     - mountPath: /mountpoint
+        #       name: volumename
+        resources:
+          limits:
+            nvidia.com/gpu: 0.3  # Number of gpus for the job - might be a problem to have fractional gpu amount
+        volumeMounts:  # Persistent volumes
+          - mountPath: <path/to/mount>  # Path in the container where the folder will be mounted
+            # subPath:  # Path in the storage after /storage-rcp-pure/upamathis_scratch/  AC: I HAVE NOT MANAGED TO MAKE subPath WORK!!!
+            name: scratch  # Must be the name assigned to the persistent volume
+      volumes:
+        - name: scratch  # Name of the persistent volume
+          persistentVolumeClaim:
+            claimName: runai-upamathis-<gaspar_id>-scratch  # Name of our volume - to get with the command "kubectl get pvc"

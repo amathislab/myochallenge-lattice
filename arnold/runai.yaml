@@ -1,0 +1,80 @@
+apiVersion: run.ai/v1
+kind: RunaiJob
+metadata:
+  name: challenge-train-23 # MUST BE SAME NAME of the "release" label under spec>templace>label bellow in order to get logs into the Run:AI dashboard
+  labels:
+    # priorityClassName: "build" # Interactive Job if present, for Train Job REMOVE this line
+    user: chiappa  # AC: for me it's chiappa
+spec:
+  template:
+    metadata:
+      labels:
+        user: alberto.chiappa # User e.g. firstname.lastname - AC for me alberto.chiappa
+        release: challenge-train-23 # MUST BE SAME NAME of your pod "name" specify in the metadata above in order to get logs into the Run:AI dashboard
+    spec:
+      hostIPC: true
+      schedulerName: runai-scheduler
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 174516 # insert uid found in people.epfl in admistrative data
+        runAsGroup: 11334 # 11334 # insert gid as found in people.epfl in admistrative data
+        fsGroup: 11334  # 11334
+      containers:
+      - name: myochallenge # not really important
+        image: registry.rcp.epfl.ch/arnold/isaac_myo17  # registry.rcp.epfl.ch/LAB/FOLDER/IMAGE:VERSION or to a dockerhub image, e.g.: albertochiappa/myo-cuda
+        workingDir : /
+        command: ["python"]
+        args:
+        - "/users/alberto/arnold/src/main_challenge.py"
+        - "--seed=0"
+        - "--num_envs=256"
+        - "--use_lattice"
+        - "--save_every=2_000_000"
+        - "--batch_size=4096"
+        - "--steps_per_env=100"
+        - "--alive_weight=0"
+        - "--distance_weight=2"
+        - "--cyclic_hip_weight=0"
+        - "--solved_weight=1"
+        - "--hip_period=100"
+        - "--min_height=0.55"
+        - "--prob_fixed=0"
+        - "--prob_random=1"
+        - "--prob_moving=0"
+        - "--x_min=-3"
+        - "--x_max=3" 
+        - "--y_min=-5" 
+        - "--y_max=1"
+        # - "--out_suffix=all_directions_close_from_scratch"
+        - "--out_suffix=_xrange_-3_3_yrange_-5_1_static_max_500_steps"
+        - "--num_steps=1_000_000_000"
+        - "--max_episode_steps=500"
+        - "--load_path=/users/alberto/arnold/output/training/2023-09-13/16-09-28_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-2_2_yrange_0_5"
+        - "--checkpoint_num=93993984"
+
+        # - "--load_path=/users/alberto/arnold/output/training/2023-08-24/08-09-20_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_1_08-19-20_0.1_0.45_0.45"
+        # - "--checkpoint_num=143990784"        
+        # - "--load_path=/users/alberto/arnold/output/training/2023-08-18/16-58-24_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_0.5_random_target"
+        # - "--checkpoint_num=103983360"
+        # - "--load_path=/users/alberto/arnold/output/training/2023-08-22/16-12-04_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_05_05_00_resume"
+        # - "--checkpoint_num=79998976"
+        # env:  # only if you want to use a default conda environment - I am not using it at the moment
+        #   - name: HOME
+        #     value: "/PATH/TO/HOMEDIR"
+        #   - name: PYTHONPATH
+        #     value: "/PATH/TO/PYLIB1:/PATH/TO/PYLIB2:/PATH/TO/PYLIB3"
+        # volumeMounts:
+        #     - mountPath: /mountpoint
+        #       name: volumename
+        # - "> /users/alberto/arnold/output/logs/challenge-train-3.txt"
+        resources:
+          limits:
+            nvidia.com/gpu: 0.3  # Number of gpus for the job - might be a problem to have fractional gpu amount
+        volumeMounts:  # Persistent volumes
+          - mountPath: /users  # Path in the container where the folder will be mounted
+            # subPath:  # Path in the storage after /storage-rcp-pure/upamathis_scratch/  AC: I HAVE NOT MANAGED TO MAKE subPath WORK!!!
+            name: scratch  # Must be the name assigned to the persistent volume
+      volumes:
+        - name: scratch  # Name of the persistent volume
+          persistentVolumeClaim:
+            claimName: runai-upamathis-chiappa-scratch  # Name of our volume - to get with the command "kubectl get pvc"
