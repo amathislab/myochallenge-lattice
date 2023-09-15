@@ -134,9 +134,6 @@ dmypy.json
 # PyCharm
 *.idea
 
-# Project
-/output
-
 # Tensorboard
 .monitor.csv
 
