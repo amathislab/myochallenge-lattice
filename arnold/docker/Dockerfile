@@ -43,27 +43,37 @@ COPY docker/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 # USER gymuser
 # ENV PATH="/home/gymuser/.local/bin:$PATH"
 
-# COPY --chown=gymuser docker/requirements.txt /usr/share/requirements.txt
+COPY --chown=gymuser docker/requirements.txt /usr/share/requirements.txt
 COPY docker/requirements.txt /usr/share/requirements.txt
 
 RUN pip install --upgrade pip
 RUN pip install -r /usr/share/requirements.txt
 
-WORKDIR /opt/isaacgym
+# WORKDIR /opt/isaacgym
 
 # copy gym repo to docker
 # COPY --chown=gymuser docker/isaacgym .
-COPY docker/isaacgym .
+# COPY docker/isaacgym .
 
 # install gym modules
-RUN cd python && pip install -q -e .
+# RUN cd python && pip install -q -e .
 
 # ADD docker/isaacgym /usr/share/isaacgym
 # RUN cd /usr/share/isaacgym/python && pip install -q -e .
 
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 
-RUN pip install myosuite==2.0
+RUN pip install myosuite==1.7.1
 # RUN pip install --upgrade pickle5==0.0.11 cloudpickle==2.2.1
 RUN python3 -c "import mujoco"
 # RUN python3 -c "import mujoco_py"
+
+RUN mkdir /data
+RUN mkdir /output
+RUN mkdir /src
+
+COPY data /data
+COPY output /output
+COPY src /src
+
+CMD [ "python", "/src/agent_loco_lattice.py" ]
