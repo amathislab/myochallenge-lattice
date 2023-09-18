@@ -80,8 +80,8 @@ class Agent:
         self.episode_starts = False
         return action
 
-EXPERIMENT_PATH = os.path.join(ROOT_DIR, "arnold/output/training/2023-09-13/16-09-28_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-2_2_yrange_0_5")
-CHECKPOINT_NUM = 99993600
+EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output/training/2023-09-15/16-23-55_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-2_2_yrange_-5_0")
+CHECKPOINT_NUM = 283981824
 
 if __name__ == "__main__":
     

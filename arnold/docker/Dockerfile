@@ -39,9 +39,9 @@ RUN rm /usr/lib/x86_64-linux-gnu/libEGL_mesa.so.0 /usr/lib/x86_64-linux-gnu/libE
 COPY docker/nvidia_icd.json /usr/share/vulkan/icd.d/nvidia_icd.jsondf 
 COPY docker/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 
-# RUN useradd --create-home gymuser
-# USER gymuser
-# ENV PATH="/home/gymuser/.local/bin:$PATH"
+RUN useradd --create-home gymuser
+USER gymuser
+ENV PATH="/home/gymuser/.local/bin:$PATH"
 
 COPY --chown=gymuser docker/requirements.txt /usr/share/requirements.txt
 COPY docker/requirements.txt /usr/share/requirements.txt
@@ -68,12 +68,12 @@ RUN pip install myosuite==1.7.1
 RUN python3 -c "import mujoco"
 # RUN python3 -c "import mujoco_py"
 
-RUN mkdir /data
-RUN mkdir /output
-RUN mkdir /src
+RUN mkdir /home/gymuser/data
+RUN mkdir /home/gymuser/output
+RUN mkdir /home/gymuser/src
 
-COPY data /data
-COPY output /output
-COPY src /src
+COPY data /home/gymuser/data
+COPY output /home/gymuser/output
+COPY src /home/gymuser/src
 
-CMD [ "python", "/src/agent_loco_lattice.py" ]
+CMD [ "python", "/home/gymuser/src/agent_loco_lattice.py" ]
