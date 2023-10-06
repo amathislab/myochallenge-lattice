@@ -37,10 +37,10 @@ class LateNoiseDistribution(DiagGaussianDistribution):
         :return:
         """
         std = log_std.exp()
-        action_variance = (std[:self.action_dim] + self.std_reg) ** 2
+        action_variance = std[:self.action_dim] ** 2
         latent_variance = std[self.action_dim:] ** 2
-        sigma_mat = (self.mean_actions.weight * latent_variance).matmul(self.mean_actions.weight.T).nan_to_num()
-        sigma_mat[range(self.action_dim), range(self.action_dim)] += action_variance
+        sigma_mat = (self.mean_actions.weight * latent_variance).matmul(self.mean_actions.weight.T)
+        sigma_mat[range(self.action_dim), range(self.action_dim)] += action_variance # + self.std_reg ** 2
         self.distribution = MultivariateNormal(mean_actions, sigma_mat)
         return self
     

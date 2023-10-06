@@ -1,15 +1,12 @@
 import gym
 import torch
-import numpy as np
 from torch import nn
-from functools import partial
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union, Tuple
 from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.preprocessing import get_action_dim
 from models.feature_extractors import TransformerFeaturesExtractor
 from models.distributions import (
-    PerMuscleDiagGaussianDistribution,
     LatticeNoiseDistribution,
     LatticeAttentionNoiseDistribution,
     TransformerStateDependentNoiseDistribution,
@@ -27,6 +24,11 @@ from stable_baselines3.common.distributions import (
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from models.helpers import Mean
 from models.extractors import TransformerExtractor
+from sb3_contrib.common.recurrent.type_aliases import RNNStates
+from definitions import ROOT_DIR
+import pickle
+from datetime import datetime
+import os
 
 
 class MuscleTransformerPolicy(ActorCriticPolicy):
@@ -234,7 +236,6 @@ class LatticeRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
     ):
         super().__init__(observation_space, action_space, lr_schedule, **kwargs)
         if use_lattice:
-            # assert self.use_sde == True
             if self.use_sde:
                 self.dist_kwargs.update(
                     {
@@ -250,3 +251,41 @@ class LatticeRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
             else:
                 self.action_dist = LateNoiseDistribution(get_action_dim(self.action_space), std_reg)
             self._build(lr_schedule)
+            
+    def evaluate_actions(
+        self,
+        obs: torch.Tensor,
+        actions: torch.Tensor,
+        lstm_states: RNNStates,
+        episode_starts: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Evaluate actions according to the current policy,
+        given the observations.
+
+        :param obs: Observation.
+        :param actions:
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
+        :return: estimated value, log likelihood of taking those actions
+            and entropy of the action distribution.
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        latent_pi, _ = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
+
+        if self.lstm_critic is not None:
+            latent_vf, _ = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+        elif self.shared_lstm:
+            latent_vf = latent_pi.detach()
+        else:
+            latent_vf = self.critic(features)
+
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+
+        log_prob = distribution.log_prob(actions)
+        values = self.value_net(latent_vf)
+        return values, log_prob, distribution.entropy()

@@ -153,7 +153,7 @@ class SingleEnvTrainer:
         self.agent.learn(
             total_timesteps=self.timesteps,
             callback=self.callbacks,
-            reset_num_timesteps=True,
+            reset_num_timesteps=False,
         )
 
     def save(self) -> None:

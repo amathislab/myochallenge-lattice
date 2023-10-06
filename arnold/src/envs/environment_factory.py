@@ -76,6 +76,8 @@ class EnvironmentFactory:
             return gym.make("CustomMyoHandPenTwirlRandom-v0", **kwargs)
         elif env_name == "CustomChaseTag":
             return gym.make("CustomChaseTagEnv-v0", **kwargs)
+        elif env_name == 'CustomRelocateEnv':
+            return gym.make("CustomRelocateEnv-v0", **kwargs)
             
         # Muscle environments
         elif env_name == "MuscleElbowPoseFixed":

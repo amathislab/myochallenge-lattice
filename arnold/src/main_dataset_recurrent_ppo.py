@@ -13,6 +13,7 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 from typing import Iterable
 import skvideo
 import platform
+import subprocess
 
 
 MODEL_PATTERN = "rl_model_*_steps.zip"
@@ -20,10 +21,12 @@ ENV_PATTERN = "rl_model_vecnormalize_*_steps.pkl"
 TB_DIR_NAME = "RecurrentPPO_1"  # "RecurrentPPO_1", "SAC_1"
 CKPT_CHOICE_CRITERION = "rollout/ep_rew_mean"  # "rollout/ep_rew_mean", "rollout/solved"
 VIDEO_DIR = os.path.join(ROOT_DIR, "data", "videos")
+HOST = "chiappa@sv-rcp-gateway.intranet.epfl.ch"
+HOST_PROJECT_ROOT = "/storage-rcp-pure/upamathis_scratch/alberto/arnold"
 
 
 def get_number(filename):
-    return int(filename.split("_steps")[0].split("_")[-1])
+    return int(filename.split("_steps.zip")[0].split("_")[-1])
 
 
 def load_model(experiment_path, checkpoint_number=None, action_space=None, observation_space=None):
@@ -37,10 +40,13 @@ def load_model(experiment_path, checkpoint_number=None, action_space=None, obser
     if observation_space is not None:
         custom_objects["observation_space"] = observation_space
     if checkpoint_number is None:
-        model_file = "best_model.zip"
+        model_file = "best_model"
     else:
         model_file = MODEL_PATTERN.replace("*", str(checkpoint_number))
     model_path = os.path.join(experiment_path, model_file)
+    if not os.path.exists(model_path):
+        print("Attempting to fetch remote experiment...")
+        get_remote_checkpoint(experiment_path, checkpoint_number)
     model = RecurrentPPO.load(model_path, custom_objects=custom_objects)
     return model
 
@@ -51,6 +57,9 @@ def load_vecnormalize(experiment_path, checkpoint_number, base_env):
     else:
         env_file = ENV_PATTERN.replace("*", str(checkpoint_number))
     env_path = os.path.join(experiment_path, env_file)
+    if not os.path.exists(env_path):
+        print("Attempting to fetch remote experiment...")
+        get_remote_checkpoint(experiment_path, checkpoint_number)
     venv = DummyVecEnv([lambda: base_env])
     print("env path", env_path)
     vecnormalize = VecNormalize.load(env_path, venv)
@@ -124,6 +133,20 @@ def get_experiment_data(tb_dir_path, attributes, tb_config=None):
     return experiment_data
 
 
+def get_remote_checkpoint(experiment_path, checkpoint_num):
+    if checkpoint_num is None:
+        raise NotImplementedError("Selection of best checkpoint from the remote not implemented")
+    file_names = [
+        "args.json",
+        "env_config.json",
+        "model_config.json",
+        f"rl_model_{checkpoint_num}_steps.zip",
+        f"rl_model_vecnormalize_{checkpoint_num}_steps.pkl"
+    ]
+    file_paths = [os.path.join(f"{HOST}:{HOST_PROJECT_ROOT}", experiment_path, f) for f in file_names]
+    subprocess.run(["rsync",  *file_paths, os.path.join(ROOT_DIR, experiment_path)])
+
+
 def main(args):
     if args.experiment_path is None:
         env = EnvironmentFactory.create(args.env_name)
@@ -135,7 +158,10 @@ def main(args):
         use_latice = False
     else:
         config_path = os.path.join(args.experiment_path, "env_config.json")
-        env_config = json.load(open(config_path, "r"))
+        if not os.path.exists(config_path):
+            print("Attempting to fetch remote experiment...")
+            get_remote_checkpoint(args.experiment_path, args.checkpoint)
+        env_config = json.load(open(config_path, "r"))    
         env = EnvironmentFactory.create(**env_config)
         env.seed(args.seed)
         if args.checkpoint is None:
@@ -357,9 +383,30 @@ if __name__ == "__main__":
     main(args)
     
     """Example:
-    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-13/16-09-28_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-2_2_yrange_0_5 \
-        --num_episodes=100 --no_save_df --render
+    # mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-17/15-29-45_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-1_1_yrange_-5_5_static_max_1000_steps \
+    #     --num_episodes=100 --no_save_df --render --deterministic    
+    
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-20/14-04-07_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_42_xrange_-5_5_yrange_-5_1_static_max_2000_steps_dist_2_hip_0.5_alive_0.5_solved_1 \
+    --num_episodes=100 --no_save_df --render --deterministic --checkpoint=69995520
+    
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_42_x_-1.0_1.0_y_-5.0_0.0_max_2000_steps_dist_0.001_hip_0.001_period_100.0_alive_0.0_solved_0.0_early_solved_0.1_joints_0.001_fix_0.1_ran_0.45_mov_0.45\'\' \
+    --num_episodes=100 --no_save_df --render --deterministic --checkpoint=97993728
         
-    rsync -r -u -v chiappa@sv-rcp-gateway.intranet.epfl.ch:/storage-rcp-pure/upamathis_scratch/alberto/arnold/output/training/2023-09-13/16-09-28_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-2_2_yrange_0_5 \
-        /Users/albertochiappa/Dev/rl/arnold/output/training/2023-09-13
+    # Maybe best so far
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-21/09-00-36_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_8_xrange_-5_5_yrange_-5_5_static_max_2000_steps_dist_2_hip_1_alive_0.5_solved_1 \
+    --num_episodes=100 --no_save_df --render --deterministic
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-20/14-04-07_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_42_xrange_-5_5_yrange_-5_1_static_max_2000_steps_dist_2_hip_0.5_alive_0.5_solved_1 \
+        --num_episodes=100 --no_save_df --render --deterministic
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-19/09-12-26_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_1_xrange_-4_4_yrange_-4_4_static_max_2000_steps_long_rollouts_hip_1_alive_0.5 \
+        --num_episodes=100 --no_save_df --render --deterministic
+        
+    rsync -r -u -v chiappa@sv-rcp-gateway.intranet.epfl.ch:/storage-rcp-pure/upamathis_scratch/alberto/arnold/output/training/2023-09-26/16-23-30_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-5_5_yrange_-5_5_max_2000_steps_alive_0_dist_1_hip_0.5_early_solved_200_rot_0_lose_0_stop_on_win_0.1_fixed_0.9_random_resume \
+        /Users/albertochiappa/Dev/rl/arnold/output/training/2023-09-26
+
+    rsync -r -u -v chiappa@sv-rcp-gateway.intranet.epfl.ch:/storage-rcp-pure/upamathis_scratch/alberto/arnold/output/training/2023-09-20 \
+        /Users/albertochiappa/Dev/rl/arnold/output/training
+        
+    rsync -r -u -v  \
+        /Users/albertochiappa/Dev/rl/arnold/output/training/2023-09-21/13-44-22_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_23_xrange_-5_5_yrange_-5_5_static_max_2000_steps_dist_2_hip_1_alive_0.5_solved_1 \
+        alberto@amg5:/home/alberto/Dev/rl/myochallenge_2023eval/arnold/output/training/2023-09-21
     """

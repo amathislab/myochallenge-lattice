@@ -369,3 +369,17 @@ gym.envs.registration.register(id='CustomChaseTagEnv-v0',
             'min_spawn_distance': 2
         }
     )
+
+gym.envs.registration.register(id='CustomRelocateEnv-v0',
+        entry_point='envs.relocate:CustomRelocateEnv',
+        max_episode_steps=2000,
+        kwargs={
+            'model_path':  myosuite_path + '/assets/arm/myoarm_object_v0.14(mj236).mjb',
+            'normalize_act': True,
+            'frame_skip': 5,
+            'pos_th': 0.1,              # cover entire base of the receptacle
+            'rot_th': np.inf,           # ignore rotation errors
+            'target_xyz_range': {'high':[0.2, -.35, 0.9], 'low':[0.0, -.1, 0.9]},
+            'target_rxryrz_range': {'high':[0.0, 0.0, 0.0], 'low':[0.0, 0.0, 0.0]}
+        }
+    )

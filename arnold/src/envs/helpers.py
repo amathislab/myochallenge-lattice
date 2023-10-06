@@ -1,4 +1,5 @@
 import os
+import random
 from envs.environment_factory import EnvironmentFactory
 from models.monitors import MonitorTensor
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
@@ -80,17 +81,16 @@ class VecEnvManager:
 def make_parallel_envs(
     env_config,
     num_env,
-    start_index=0,
     tensorboard_log=None,
     using_isaac=False,
     using_tensor_buffer=False,
     seed=0,
     max_episode_steps=None
 ):
-    def make_env(_):
+    def make_env(seed):
         def _thunk():
+            env_config["seed"] = seed
             env = EnvironmentFactory.create(**env_config)
-            env.seed(seed)
             if max_episode_steps is not None:
                 env._max_episode_steps = max_episode_steps
             env = Monitor(env, tensorboard_log)
@@ -105,7 +105,7 @@ def make_parallel_envs(
         env = MyDummyVecEnv(env, using_tensor_buffer)
         return env
     else:
-        return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+        return SubprocVecEnv([make_env(i + seed) for i in range(num_env)])
 
 
 def create_vec_env(

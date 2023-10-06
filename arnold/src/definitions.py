@@ -63,14 +63,26 @@ CHASETAG_INFO_KEYS = {
     "cyclic_hip",
     "ref_rot",
     "joint_angle_rew",
+    "early_solved",
     "act_reg",
     "distance",
     "alive",
     "lose",
+    "joints_in_range",
+    "heel_pos",
 }
 
-ISAAC_REACH_INFO_KEYS = {
+RELOCATE_INFO_KEYS = {
+    "done",
+    "solved",
+    "sparse",
+    "act_reg",
+    "pos_dist",
+    "rot_dist",
+    "reach_dist",
 }
+
+ISAAC_REACH_INFO_KEYS = {}
 
 ENV_INFO = {
     "MuscleElbowPoseFixed": POSE_INFO_KEYS,
@@ -96,7 +108,8 @@ ENV_INFO = {
     "IsaacgymReorient": ISAAC_REACH_INFO_KEYS,
     "MuscleLegsStandEnv": REACH_INFO_KEYS,
     "MuscleLegsWalkEnv": WALK_INFO_KEYS,
-    "CustomChaseTag": CHASETAG_INFO_KEYS
+    "CustomChaseTag": CHASETAG_INFO_KEYS,
+    "CustomRelocateEnv": RELOCATE_INFO_KEYS,
 }
 
 OBS_ID_MAP = {

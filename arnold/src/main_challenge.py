@@ -4,7 +4,7 @@ import argparse
 import torch.nn as nn
 import json
 import numpy as np
-from datetime import datetime
+import glob
 from datetime import datetime
 from definitions import ROOT_DIR, ENV_INFO
 from metrics.custom_callbacks import TensorboardCallback
@@ -12,6 +12,7 @@ from train.trainer import SingleEnvTrainer
 from stable_baselines3.common.callbacks import CheckpointCallback
 from envs.helpers import create_vec_env
 from models.ppo.policies import LatticeRecurrentActorCriticPolicy
+from main_dataset_recurrent_ppo import MODEL_PATTERN, get_number
 
 
 parser = argparse.ArgumentParser(description="Main script to train an agent")
@@ -23,7 +24,7 @@ parser.add_argument("--use_lattice", action="store_true", default=False, help="F
 parser.add_argument("--log_std_init", type=float, default=0.0, help="Initial log standard deviation")
 parser.add_argument("--env_name",type=str,default="CustomChaseTag", help="Name of the environment",)
 parser.add_argument("--load_path", type=str, help="Path to the experiment to load")
-parser.add_argument("--checkpoint_num", type=int, default=0, help="Number of the checkpoint to load")
+parser.add_argument("--checkpoint_num", type=int, default=None, help="Number of the checkpoint to load")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of parallel environments")
 parser.add_argument("--device", type=str, default="cuda", help="Device, cuda or cpu")
 parser.add_argument("--std_reg", type=float, default=0, help="Additional independent std for the multivariate gaussian (only for lattice)")
@@ -42,6 +43,8 @@ parser.add_argument("--vel_reward_weight", type=float, default=0)
 parser.add_argument("--cyclic_hip_weight", type=float, default=0)
 parser.add_argument("--ref_rot_weight", type=float, default=0)
 parser.add_argument("--joint_angle_rew_weight", type=float, default=0)
+parser.add_argument("--early_solved_weight", type=float, default=0)
+parser.add_argument("--joints_in_range_weight", type=float, default=0)
 parser.add_argument("--min_height", type=float, default=0.6)
 parser.add_argument("--prob_fixed", type=float, default=1.0)
 parser.add_argument("--prob_random", type=float, default=0.0)
@@ -52,9 +55,16 @@ parser.add_argument("--y_min", type=float, default=-5.0)
 parser.add_argument("--y_max", type=float, default=5.0)
 parser.add_argument("--theta_min", type=float, default=-2 * np.pi)  # Weird but agrees with the source code of the library
 parser.add_argument("--theta_max", type=float, default=2 * np.pi)
+parser.add_argument("--min_spawn_distance", type=float, default=2)
 parser.add_argument("--hip_period", type=float, default=100)
 parser.add_argument("--out_suffix", type=str, default="", help="Suffix added to the experiment folder name")
 parser.add_argument("--max_episode_steps", type=int, default=2000, help="Maximum episode duration")
+parser.add_argument("--network_arch", type=int, nargs="*", default=[256, 256], help="Hidden layer size",)
+parser.add_argument("--stop_on_win", action="store_true", default=False, help="Flag to stop when the target is reached")
+parser.add_argument("--heel_pos_weight", type=float, default=0, help="Reward for heel position during gait")
+parser.add_argument("--gait_stride_length", type=float, default=0.8, help="Target stride length (in meters)")
+parser.add_argument("--gait_cadence", type=float, default=1.0, help="Target stride cadence (in strides per second)")
+parser.add_argument("--target_speed", type=float, default=0, help="Target speed (in m per second), should match gait speed")
 
 
 args = parser.parse_args()
@@ -62,22 +72,63 @@ args = parser.parse_args()
 if args.use_sde == False and args.freq > 1:
     raise ValueError("Cannot have sampling freq > 1 without sde")
 
-now = datetime.now().strftime("%Y-%m-%d/%H-%M-%S")
-
-if args.load_path is not None:
-    experiment_name = args.load_path.split("/")[-1]
-    model_path = os.path.join(
-        ROOT_DIR, args.load_path, f"rl_model_{args.checkpoint_num}_steps"
+TENSORBOARD_LOG = (
+    os.path.join(ROOT_DIR, "output", "training", "ongoing",
+    (f"{args.env_name}_seed_{args.seed}_x_{args.x_min}_{args.x_max}_y_{args.y_min}_{args.y_max}"
+    f"_dist_{args.distance_weight}_hip_{args.cyclic_hip_weight}_period_{args.hip_period}"
+    f"_alive_{args.alive_weight}_solved_{args.solved_weight}_early_solved_{args.early_solved_weight}"
+    f"_joints_{args.joints_in_range_weight}_lose_{args.lose_weight}_ref_{args.ref_rot_weight}"
+    f"_heel_{args.heel_pos_weight}_gait_l_{args.gait_stride_length}_gait_c_{args.gait_cadence}"
+    f"_fix_{args.prob_fixed}_ran_{args.prob_random}_mov_{args.prob_moving}{args.out_suffix}")
     )
+)
+if os.path.isdir(TENSORBOARD_LOG):
+    # The folder already exists, then we resume the training if there are already checkpoints
+    load_path = TENSORBOARD_LOG
+    model_list = sorted(
+        glob.glob(os.path.join(load_path, MODEL_PATTERN)),
+        key=get_number,
+    )
+    checkpoints_list = [get_number(el) for el in model_list]
+    if len(checkpoints_list) > 0:
+        checkpoint = max(checkpoints_list)
+    else:
+        print(f"WARNING: No checkpoints at the given path {load_path}, let's see if there is a model at the cli path")
+        load_path = args.load_path
+        checkpoint = None
+else:
+    # There is no such training with this setup
+    load_path = args.load_path
+if load_path is not None:
+    experiment_name = load_path.split("/")[-1]
+    if args.checkpoint_num is None:
+            # Get the list of checkpoints
+            model_list = sorted(
+                glob.glob(os.path.join(load_path, MODEL_PATTERN)),
+                key=get_number,
+            )
+            checkpoints_list = [get_number(el) for el in model_list]
+            if len(checkpoints_list) > 0:
+                checkpoint = max(checkpoints_list)
+            else:
+                print(f"WARNING: No checkpoints in the given path {load_path}, starting a new training")
+                checkpoint = None
+    else:
+        checkpoint = args.checkpoint_num
+    if checkpoint is None:
+        model_path = None
+        print("Creating a new model")
+    else:
+        model_path = os.path.join(
+            ROOT_DIR, load_path, f"rl_model_{checkpoint}_steps.zip"
+        )
+        print("loading model from ", model_path)
 else:
     experiment_name = None
     model_path = None
+    checkpoint = None
+    # now = datetime.now().strftime("%Y-%m-%d/%H-%M-%S")
 
-
-TENSORBOARD_LOG = (
-    os.path.join(ROOT_DIR, "output", "training", now)
-    + f"_{args.env_name}_sde_{args.use_sde}_lattice_{args.use_lattice}_freq_{args.freq}_log_std_init_{args.log_std_init}_ppo_seed_{args.seed}{args.out_suffix}"
-)
 
 weighted_reward_keys = {
     "done": args.done_weight,
@@ -90,24 +141,45 @@ weighted_reward_keys = {
     "vel_reward": args.vel_reward_weight,
     "cyclic_hip": args.cyclic_hip_weight,
     "ref_rot": args.ref_rot_weight,
-    "joint_angle_rew": args.joint_angle_rew_weight
+    "joint_angle_rew": args.joint_angle_rew_weight,
+    "early_solved": args.early_solved_weight,
+    "joints_in_range": args.joints_in_range_weight,
+    "heel_pos": args.heel_pos_weight
 }
 
+obs_keys = [
+    'internal_qpos',
+    'internal_qvel',
+    'grf',
+    'torso_angle',
+    'opponent_pose',
+    'opponent_vel',
+    'model_root_pos',
+    'model_root_vel',
+    'muscle_length',
+    'muscle_velocity',
+    'muscle_force',
+]
 
 env_config = {
     "env_name": args.env_name,
     "seed": args.seed,
+    "obs_keys": obs_keys,
     "weighted_reward_keys": weighted_reward_keys,
     "min_height": args.min_height,
     "opponent_probabilities": [args.prob_fixed, args.prob_random, args.prob_moving],
-    "stop_on_win": False,
+    "stop_on_win": args.stop_on_win,
     "hip_period": args.hip_period,
     "opponent_x_range": (args.x_min, args.x_max),
     "opponent_y_range": (args.y_min, args.y_max),
-    "opponent_orient_range": (args.theta_min, args.theta_max)
+    "opponent_orient_range": (args.theta_min, args.theta_max),
+    "min_spawn_distance": args.min_spawn_distance,
+    "gait_stride_length": args.gait_stride_length,
+    "gait_cadence": args.gait_cadence,
+    "target_speed": args.target_speed,
 }
 
-net_arch = [dict(pi=[256, 256], vf=[256, 256])]
+net_arch = [dict(pi=args.network_arch, vf=args.network_arch)]
 
 model_config = dict(
     policy=LatticeRecurrentActorCriticPolicy,
@@ -158,8 +230,8 @@ if __name__ == "__main__":
     # Create the environment
     envs = create_vec_env(env_config, 
                           num_envs=args.num_envs, 
-                          load_path=args.load_path, 
-                          checkpoint_num=args.checkpoint_num, 
+                          load_path=load_path, 
+                          checkpoint_num=checkpoint,
                           tensorboard_log=TENSORBOARD_LOG,
                           seed=args.seed,
                           max_episode_steps=args.max_episode_steps)
