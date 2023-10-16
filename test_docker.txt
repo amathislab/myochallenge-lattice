@@ -1,0 +1,3 @@
+
+
+docker run -it --network=host --gpus=all --name=myochallenge_mani_container myochallengeeval_mani_agent /bin/bash

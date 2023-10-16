@@ -76,4 +76,4 @@ COPY data /home/gymuser/data
 COPY output /home/gymuser/output
 COPY src /home/gymuser/src
 
-CMD [ "python", "/home/gymuser/src/agent_loco_lattice.py" ]
+CMD [ "python", "/home/gymuser/src/agent_mani_phase1.py" ]

@@ -75,11 +75,22 @@ CHASETAG_INFO_KEYS = {
 RELOCATE_INFO_KEYS = {
     "done",
     "solved",
+    "alive",
     "sparse",
     "act_reg",
     "pos_dist",
     "rot_dist",
     "reach_dist",
+    "reach_dist_xy",
+    "reach_dist_z",
+    "lift_bonus",
+    "pos_dist_z",
+    "dense",
+    "max_app",
+    "contact_hand_obj",
+    "rot_palm_obj",
+    "min_app",
+    "close_bonus",
 }
 
 ISAAC_REACH_INFO_KEYS = {}

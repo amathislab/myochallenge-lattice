@@ -372,7 +372,7 @@ gym.envs.registration.register(id='CustomChaseTagEnv-v0',
 
 gym.envs.registration.register(id='CustomRelocateEnv-v0',
         entry_point='envs.relocate:CustomRelocateEnv',
-        max_episode_steps=2000,
+        max_episode_steps=150,
         kwargs={
             'model_path':  myosuite_path + '/assets/arm/myoarm_object_v0.14(mj236).mjb',
             'normalize_act': True,
