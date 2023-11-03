@@ -5,7 +5,6 @@ import torch.nn as nn
 import json
 import numpy as np
 import glob
-from datetime import datetime
 from definitions import ROOT_DIR, ENV_INFO
 from metrics.custom_callbacks import TensorboardCallback
 from train.trainer import SingleEnvTrainer
@@ -45,6 +44,10 @@ parser.add_argument("--ref_rot_weight", type=float, default=0)
 parser.add_argument("--joint_angle_rew_weight", type=float, default=0)
 parser.add_argument("--early_solved_weight", type=float, default=0)
 parser.add_argument("--joints_in_range_weight", type=float, default=0)
+parser.add_argument("--feet_height_weight", type=float, default=0)
+parser.add_argument("--gait_prod_weight", type=float, default=0)
+parser.add_argument("--alternating_foot_weight", type=float, default=0)
+parser.add_argument("--lateral_foot_position_weight", type=float, default=0)
 parser.add_argument("--min_height", type=float, default=0.6)
 parser.add_argument("--prob_fixed", type=float, default=1.0)
 parser.add_argument("--prob_random", type=float, default=0.0)
@@ -55,16 +58,35 @@ parser.add_argument("--y_min", type=float, default=-5.0)
 parser.add_argument("--y_max", type=float, default=5.0)
 parser.add_argument("--theta_min", type=float, default=-2 * np.pi)  # Weird but agrees with the source code of the library
 parser.add_argument("--theta_max", type=float, default=2 * np.pi)
+parser.add_argument("--agent_x_min", type=float, default=-5.0)
+parser.add_argument("--agent_x_max", type=float, default=5.0)
+parser.add_argument("--agent_y_min", type=float, default=-5.0)
+parser.add_argument("--agent_y_max", type=float, default=5.0)
+parser.add_argument("--agent_theta_min", type=float, default=0)
+parser.add_argument("--agent_theta_max", type=float, default=2 * np.pi)
 parser.add_argument("--min_spawn_distance", type=float, default=2)
 parser.add_argument("--hip_period", type=float, default=100)
 parser.add_argument("--out_suffix", type=str, default="", help="Suffix added to the experiment folder name")
 parser.add_argument("--max_episode_steps", type=int, default=2000, help="Maximum episode duration")
 parser.add_argument("--network_arch", type=int, nargs="*", default=[256, 256], help="Hidden layer size",)
+parser.add_argument("--lstm_hidden_size", type=int, default=256, help="LSTM hidden layer size",)
 parser.add_argument("--stop_on_win", action="store_true", default=False, help="Flag to stop when the target is reached")
 parser.add_argument("--heel_pos_weight", type=float, default=0, help="Reward for heel position during gait")
 parser.add_argument("--gait_stride_length", type=float, default=0.8, help="Target stride length (in meters)")
-parser.add_argument("--gait_cadence", type=float, default=1.0, help="Target stride cadence (in strides per second)")
+parser.add_argument("--opponent_speed", type=float, default=10.0, help="Speed magnitude of the opponent")
+parser.add_argument("--gait_cadence", type=float, default=0.01, help="Target stride cadence (in strides per sim step)")
 parser.add_argument("--target_speed", type=float, default=0, help="Target speed (in m per second), should match gait speed")
+parser.add_argument("--include_hfield", action="store_true", default=False, help="Flag to include the height field in the observation")
+parser.add_argument("--task_choice", type=str, default="CHASE", help="CHASE, EVADE or random")
+parser.add_argument("--terrain", type=str, default="FLAT", help="FLAT or random")
+parser.add_argument("--reset_type", type=str, default="init", help="init or random")
+parser.add_argument("--hills_min", type=float, default=0.03, help="Min hills height")
+parser.add_argument("--hills_max", type=float, default=0.23, help="Max hills height")
+parser.add_argument("--rough_min", type=float, default=0.05, help="Min rough height")
+parser.add_argument("--rough_max", type=float, default=0.1, help="Max rough height")
+parser.add_argument("--relief_min", type=float, default=0.1, help="Min relief height")
+parser.add_argument("--relief_max", type=float, default=0.3, help="Max relief height")
+parser.add_argument("--traj_mode", type=str, default="opponent", help="Follow opponent or virtual_traj")
 
 
 args = parser.parse_args()
@@ -79,7 +101,7 @@ TENSORBOARD_LOG = (
     f"_alive_{args.alive_weight}_solved_{args.solved_weight}_early_solved_{args.early_solved_weight}"
     f"_joints_{args.joints_in_range_weight}_lose_{args.lose_weight}_ref_{args.ref_rot_weight}"
     f"_heel_{args.heel_pos_weight}_gait_l_{args.gait_stride_length}_gait_c_{args.gait_cadence}"
-    f"_fix_{args.prob_fixed}_ran_{args.prob_random}_mov_{args.prob_moving}{args.out_suffix}")
+    f"_fix_{args.prob_fixed}_ran_{args.prob_random}_mov_{args.prob_moving}_traj_{args.traj_mode}{args.out_suffix}")
     )
 )
 if os.path.isdir(TENSORBOARD_LOG):
@@ -127,8 +149,6 @@ else:
     experiment_name = None
     model_path = None
     checkpoint = None
-    # now = datetime.now().strftime("%Y-%m-%d/%H-%M-%S")
-
 
 weighted_reward_keys = {
     "done": args.done_weight,
@@ -144,7 +164,11 @@ weighted_reward_keys = {
     "joint_angle_rew": args.joint_angle_rew_weight,
     "early_solved": args.early_solved_weight,
     "joints_in_range": args.joints_in_range_weight,
-    "heel_pos": args.heel_pos_weight
+    "heel_pos": args.heel_pos_weight,
+    "gait_prod": args.gait_prod_weight,
+    "feet_height": args.feet_height_weight,
+    "alternating_foot": args.alternating_foot_weight,
+    "lateral_foot_position": args.lateral_foot_position_weight
 }
 
 obs_keys = [
@@ -160,6 +184,8 @@ obs_keys = [
     'muscle_velocity',
     'muscle_force',
 ]
+if args.include_hfield:
+    obs_keys.append("hfield")
 
 env_config = {
     "env_name": args.env_name,
@@ -168,15 +194,26 @@ env_config = {
     "weighted_reward_keys": weighted_reward_keys,
     "min_height": args.min_height,
     "opponent_probabilities": [args.prob_fixed, args.prob_random, args.prob_moving],
+    "reset_type": args.reset_type,
+    "task_choice": args.task_choice,
+    "hills_range": (args.hills_min, args.hills_max),
+    "rough_range": (args.rough_min, args.rough_max),
+    "relief_range": (args.relief_min, args.relief_max),
+    "terrain": args.terrain,
     "stop_on_win": args.stop_on_win,
     "hip_period": args.hip_period,
     "opponent_x_range": (args.x_min, args.x_max),
     "opponent_y_range": (args.y_min, args.y_max),
     "opponent_orient_range": (args.theta_min, args.theta_max),
+    "agent_x_range": (args.agent_x_min, args.agent_x_max),
+    "agent_y_range": (args.agent_y_min, args.agent_y_max),
+    "agent_orient_range": (args.agent_theta_min, args.agent_theta_max),
     "min_spawn_distance": args.min_spawn_distance,
     "gait_stride_length": args.gait_stride_length,
     "gait_cadence": args.gait_cadence,
+    "opponent_speed": args.opponent_speed,
     "target_speed": args.target_speed,
+    "traj_mode": args.traj_mode,
 }
 
 net_arch = [dict(pi=args.network_arch, vf=args.network_arch)]
@@ -207,6 +244,7 @@ model_config = dict(
         expln_eps=1e-6,
         full_std=False,
         std_reg=args.std_reg,
+        lstm_hidden_size=args.lstm_hidden_size
     ),
 )
 

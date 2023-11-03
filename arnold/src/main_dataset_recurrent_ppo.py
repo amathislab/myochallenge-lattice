@@ -11,6 +11,7 @@ from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from scipy.signal import savgol_filter
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 from typing import Iterable
+from torch import nn
 import skvideo
 import platform
 import subprocess
@@ -29,12 +30,15 @@ def get_number(filename):
     return int(filename.split("_steps.zip")[0].split("_")[-1])
 
 
-def load_model(experiment_path, checkpoint_number=None, action_space=None, observation_space=None):
-    custom_objects = {
-        "learning_rate": lambda _: 0,
-        "lr_schedule": lambda _: 0,
-        "clip_range": lambda _: 0,
-    }
+def load_model(experiment_path, checkpoint_number=None, action_space=None, observation_space=None, model_config=None):
+    if model_config is None:
+        custom_objects = {
+            "learning_rate": lambda _: 0,
+            "lr_schedule": lambda _: 0,
+            "clip_range": lambda _: 0,
+        }
+    else:
+        custom_objects = model_config
     if action_space is not None:
         custom_objects["action_space"] = action_space
     if observation_space is not None:
@@ -144,6 +148,7 @@ def get_remote_checkpoint(experiment_path, checkpoint_num):
         f"rl_model_vecnormalize_{checkpoint_num}_steps.pkl"
     ]
     file_paths = [os.path.join(f"{HOST}:{HOST_PROJECT_ROOT}", experiment_path, f) for f in file_names]
+    os.makedirs(os.path.join(ROOT_DIR, experiment_path), exist_ok=True)
     subprocess.run(["rsync",  *file_paths, os.path.join(ROOT_DIR, experiment_path)])
 
 
@@ -161,7 +166,10 @@ def main(args):
         if not os.path.exists(config_path):
             print("Attempting to fetch remote experiment...")
             get_remote_checkpoint(args.experiment_path, args.checkpoint)
-        env_config = json.load(open(config_path, "r"))    
+        env_config = json.load(open(config_path, "r"))
+        ## TODO: remove
+        if args.env_name is not None:
+            env_config = {"env_name": args.env_name, "seed": args.seed}
         env = EnvironmentFactory.create(**env_config)
         env.seed(args.seed)
         if args.checkpoint is None:
@@ -188,12 +196,12 @@ def main(args):
                 checkpoint = None
         else:
             checkpoint = args.checkpoint
-        model = load_model(args.experiment_path, checkpoint, action_space=env.action_space, observation_space=env.observation_space)
-        vecnormalize = load_vecnormalize(args.experiment_path, checkpoint, env)
         model_config_path = os.path.join(args.experiment_path, "model_config.json")
         model_config = json.load(open(model_config_path, "r"))
         sde_sample_freq = model_config["sde_sample_freq"]
         use_latice = model_config["policy_kwargs"]["use_lattice"]
+        model = load_model(args.experiment_path, checkpoint, action_space=env.action_space, observation_space=env.observation_space)
+        vecnormalize = load_vecnormalize(args.experiment_path, checkpoint, env)
 
     # Collect rollouts and store them
     vecnormalize.training = False
@@ -224,6 +232,8 @@ def main(args):
                 frames.append(curr_frame)
             if model.use_sde and not args.deterministic and step % sde_sample_freq == 0:
                 model.policy.reset_noise()
+                
+            # breakpoint()
             action, lstm_states = model.predict(
                 vecnormalize.normalize_obs(obs),
                 state=lstm_states,
@@ -251,6 +261,13 @@ def main(args):
                 deterministic=True,
             )
             next_obs, rewards, done, _ = env.step(action)
+            # print("Step: ", env.env.steps)
+            # print("is:", env.env._get_foot_in_front())
+            # print("Should:", env.env.should_be_foot_in_front)
+            # print(env.env._get_feet_lateral_position())
+            # import time
+            # time.sleep(1)
+            # breakpoint()
             episode_data.append(
                 [
                     i,
@@ -337,7 +354,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env_name",
         type=str,
-        default="CustomMyoReorientP2",
+        default=None,
         help="Name of the environment where to test the agent",
     )
     parser.add_argument(
@@ -385,14 +402,43 @@ if __name__ == "__main__":
     """Example:
     # mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-17/15-29-45_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_0_xrange_-1_1_yrange_-5_5_static_max_1000_steps \
     #     --num_episodes=100 --no_save_df --render --deterministic    
+    #         mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_8_x_-1.0_1.0_y_-5.0_0.0_dist_0.05_hip_0.001_period_100.0_alive_0.0_solved_0.0_early_solved_0.1_joints_0.005_lose_0.0_ref_0.002_heel_0_gait_l_0.8_gait_c_1.0_fix_0.1_ran_0.9_mov_0.0_job_60 \
+    # --num_episodes=100 --no_save_df --render --deterministic --checkpoint=211986432
+mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_42_x_-6.0_6.0_y_-6.0_6.0_dist_0.001_hip_0.0_period_100.0_alive_0.0_solved_0.0_early_solved_0.0_joints_0.001_lose_-10.0_ref_0.0_heel_0.0_gait_l_0.8_gait_c_0.01_fix_0.1_ran_0.45_mov_0.45_job_187 \
+--num_episodes=100 --no_save_df --render --checkpoint=430000000
+
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_15_x_-6.0_6.0_y_-6.0_3.0_dist_0.2_hip_0.0_period_100.0_alive_0.0_solved_0.0_early_solved_1.0_joints_0.0_lose_-10.0_ref_0.02_heel_0.0_gait_l_0.8_gait_c_0.01_fix_0.1_ran_0.45_mov_0.45_job_178 \
+    --num_episodes=100 --no_save_df --render --checkpoint=642000000
+
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_42_x_-6.0_6.0_y_-6.0_6.0_dist_0.5_hip_0.0_period_100.0_alive_0.0_solved_0.0_early_solved_1.0_joints_0.0_lose_-20.0_ref_0.2_heel_0.0_gait_l_0.8_gait_c_0.01_fix_0.1_ran_0.45_mov_0.45_job_186 \
+    --num_episodes=100 --no_save_df --render --checkpoint=890000000
+
+output/training/ongoing/CustomChaseTag_seed_42_x_-5.0_5.0_y_-5.0_5.0_dist_0.05_hip_0.005_period_100.0_alive_0.0_solved_0.0_early_solved_0.5_joints_0.1_lose_-20.0_ref_0.001_heel_0.0_gait_l_0.8_gait_c_0.01_fix_0.1_ran_0.45_mov_0.45_job_146/rl_model_1057939584_steps.zip
+
+
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training_mani/ongoing/_seed_888_max_steps_150_reg_0.1__solved_10.0_pos_dist_5.0_rot_dist_0.0_reach_dist_0.0_lift_1.0_max_app_0.0_reach_z_0.0_job_218 \
+    --num_episodes=100 --no_save_df --render --checkpoint=1120000000
     
-    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-20/14-04-07_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_42_xrange_-5_5_yrange_-5_1_static_max_2000_steps_dist_2_hip_0.5_alive_0.5_solved_1 \
-    --num_episodes=100 --no_save_df --render --deterministic --checkpoint=69995520
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training_mani/ongoing/_seed_123_max_steps_150_reg_0.1__solved_20.0_pos_dist_10.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_225 \
+    --num_episodes=100 --no_save_df --render --checkpoint=1096000000
+
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training_mani/ongoing/_seed_123_max_steps_150_reg_0.1__solved_10.0_pos_dist_0.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_222 \
+    --num_episodes=100 --no_save_df --render --checkpoint=1104000000
     
-    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_42_x_-1.0_1.0_y_-5.0_0.0_max_2000_steps_dist_0.001_hip_0.001_period_100.0_alive_0.0_solved_0.0_early_solved_0.1_joints_0.001_fix_0.1_ran_0.45_mov_0.45\'\' \
-    --num_episodes=100 --no_save_df --render --deterministic --checkpoint=97993728
-        
-    # Maybe best so far
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training_mani/ongoing/_seed_59_max_steps_150_reg_0.1__solved_0.0_pos_dist_10.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_212 \
+    --num_episodes=100 --no_save_df --render --checkpoint=1104000000
+    
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training_mani/ongoing/_seed_123_max_steps_150_reg_0.1__solved_10.0_pos_dist_0.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_224 \
+    --num_episodes=100 --no_save_df --render --checkpoint=1068000000
+
+# Maybe best so far
+# Training 77 very promising
+    mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_8_x_-4.0_4.0_y_-5.0_2.0_dist_0.05_hip_0.001_period_100.0_alive_0.0_solved_0.0_early_solved_0.5_joints_0.005_lose_0.0_ref_0.002_heel_0_gait_l_0.8_gait_c_1.0_fix_0.1_ran_0.9_mov_0.0_job_77 \
+    --num_episodes=100 --no_save_df --render --deterministic --checkpoint=701955072
+    
+        mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/ongoing/CustomChaseTag_seed_8_x_-5.0_5.0_y_-5.0_5.0_dist_2.0_hip_0.5_period_100.0_alive_0.0_solved_0.0_early_solved_300.0_joints_2.0_lose_-1000.0_ref_1.0_heel_0_gait_l_0.8_gait_c_1.0_fix_0.1_ran_0.45_mov_0.45_job_63 \
+    --num_episodes=100 --no_save_df --render --checkpoint=149990400 --deterministic
+    
     mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-21/09-00-36_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_8_xrange_-5_5_yrange_-5_5_static_max_2000_steps_dist_2_hip_1_alive_0.5_solved_1 \
     --num_episodes=100 --no_save_df --render --deterministic
     mjpython src/main_dataset_recurrent_ppo.py --experiment_path=output/training/2023-09-20/14-04-07_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_42_xrange_-5_5_yrange_-5_1_static_max_2000_steps_dist_2_hip_0.5_alive_0.5_solved_1 \
@@ -407,6 +453,6 @@ if __name__ == "__main__":
         /Users/albertochiappa/Dev/rl/arnold/output/training
         
     rsync -r -u -v  \
-        /Users/albertochiappa/Dev/rl/arnold/output/training/2023-09-21/13-44-22_CustomChaseTag_sde_False_lattice_True_freq_1_log_std_init_0.0_ppo_seed_23_xrange_-5_5_yrange_-5_5_static_max_2000_steps_dist_2_hip_1_alive_0.5_solved_1 \
-        alberto@amg5:/home/alberto/Dev/rl/myochallenge_2023eval/arnold/output/training/2023-09-21
+        /Users/albertochiappa/Dev/rl/arnold/output/training/ongoing/CustomChaseTag_seed_8_x_-5.0_5.0_y_-5.0_5.0_dist_2.0_hip_0.5_period_100.0_alive_0.0_solved_0.0_early_solved_300.0_joints_2.0_lose_-1000.0_ref_1.0_heel_0.0_gait_l_0.8_gait_c_1.0_fix_0.1_ran_0.45_mov_0.45_job_64 \
+        alberto@amg5:/home/alberto/Dev/rl/myochallenge_2023eval/arnold/output/training/2023-09-29
     """

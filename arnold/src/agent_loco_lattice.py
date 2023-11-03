@@ -28,6 +28,7 @@ def get_custom_observation(rc):
       'muscle_length',
       'muscle_velocity',
       'muscle_force',
+      "task"
     ]
     obs_keys.append('act')
 
@@ -115,6 +116,9 @@ if __name__ == "__main__":
             ################################################
             ### B - HERE the action is obtained from the policy and passed to the remote environment
             obs = get_custom_observation(rc)
+            task = obs[-1]
+            obs = obs[:-1]
+            
             if counter == 0:
                 pi.reset()
                 

@@ -3,7 +3,7 @@ import gym
 import myosuite
 import numpy as np
 from definitions import ROOT_DIR  # pylint: disable=import-error
-from myosuite.envs.myo import register_env_with_variants
+from myosuite.envs.myo.myobase import register_env_with_variants
 
 
 myosuite_path = os.path.join(ROOT_DIR, "data", "myosuite")
@@ -362,7 +362,7 @@ gym.envs.registration.register(id='CustomChaseTagEnv-v0',
         entry_point='envs.chasetag:CustomChaseTagEnv',
         max_episode_steps=2000,
         kwargs={
-            'model_path':  myosuite_path + '/assets/legs/myolegs_chasetag_v0.10(mj236).mjb',
+            'model_path':  myosuite_path + '/assets/legs/myolegs_chasetag_v0.11(mj237).mjb',
             'normalize_act': True,
             'reset_type':'init', # none, init, random
             'win_distance': 0.5,
@@ -381,5 +381,24 @@ gym.envs.registration.register(id='CustomRelocateEnv-v0',
             'rot_th': np.inf,           # ignore rotation errors
             'target_xyz_range': {'high':[0.2, -.35, 0.9], 'low':[0.0, -.1, 0.9]},
             'target_rxryrz_range': {'high':[0.0, 0.0, 0.0], 'low':[0.0, 0.0, 0.0]}
+        }
+    )
+
+gym.envs.registration.register(id='CustomRelocateEnvPhase2-v0',
+        entry_point='envs.relocate:CustomRelocateEnvPhase2',
+        max_episode_steps=150,
+        kwargs={
+            'model_path':  myosuite_path + '/assets/arm/myoarm_object_v0.16(mj237).mjb',
+            'normalize_act': True,
+            'frame_skip': 5,
+            'pos_th': 0.1,              # cover entire base of the receptacle
+            'rot_th': np.inf,           # ignore rotation errors
+            'qpos_noise_range':0.01,    # jnt initialization range
+            'target_xyz_range': {'high':[0.3, -.1, 1.05], 'low':[0.0, -.45, 0.9]},
+            'target_rxryrz_range': {'high':[0.2, 0.2, 0.2], 'low':[-.2, -.2, -.2]},
+            'obj_xyz_range': {'high':[0.1, -.15, 1.0], 'low':[-0.1, -.35, 1.0]},
+            'obj_geom_range': {'high':[.025, .025, .025], 'low':[.015, 0.015, 0.015]},
+            'obj_mass_range': {'high':0.200, 'low':0.050},# 50gms to 200 gms
+            'obj_friction_range': {'high':[1.2, 0.006, 0.00012], 'low':[0.8, 0.004, 0.00008]}
         }
     )
