@@ -63,7 +63,7 @@ RUN pip install -r /usr/share/requirements.txt
 
 ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 
-RUN pip install myosuite==1.7.1
+RUN pip install myosuite==2.1.5
 # RUN pip install --upgrade pickle5==0.0.11 cloudpickle==2.2.1
 RUN python3 -c "import mujoco"
 # RUN python3 -c "import mujoco_py"
@@ -76,4 +76,4 @@ COPY data /home/gymuser/data
 COPY output /home/gymuser/output
 COPY src /home/gymuser/src
 
-CMD [ "python", "/home/gymuser/src/agent_loco_lattice.py" ]
+CMD [ "python", "/home/gymuser/src/agent_mani_lattice.py" ]
