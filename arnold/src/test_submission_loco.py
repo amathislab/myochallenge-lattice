@@ -162,15 +162,15 @@ def get_custom_observation(env, virtual_traj=False):
       'muscle_length',
       'muscle_velocity',
       'muscle_force',
+      'hfield',
+      'act',
       'task'
     ]
-    obs_keys.append('act')
 
     # obs_dict = rc.get_obsdict()
     obs_dict = env.get_obs_dict(env.sim)
     # add new features here that can be computed from obs_dict
     # obs_dict['qpos_without_xy'] = np.array(obs_dict['internal_qpos'][2:35].copy())
-    task = obs_dict[task]
     if virtual_traj: # both cases virtual
         new_target = get_target_pos(obs["model_root_pos"], obs["opponent_pose"])[:].copy() 
         obs_dict['opponent_pose'] = new_target
