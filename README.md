@@ -10,6 +10,7 @@ Here we present the strategy that was employed to achieve the #1 solution to the
 
 * docker -> Files to create the docker image used to train and test the agents.
 * output -> Where the results of the trainings are stored.
+* docs -> Appendix and images.
 * src -> Source code.
   * envs -> Custom environments (also not relevant for this challenge). The important one is the custom version of Relocate.
   * metrics -> Custom callbacks to monitor the trining.
@@ -22,7 +23,7 @@ Here we present the strategy that was employed to achieve the #1 solution to the
 
 We strongly recommend using docker for maximum reproducibility of the results. We provide the utility scripts `docker/build.sh` and `docker/test.sh` to create a docker image including all the necessary libraries and training/evaluation scripts.
 
-Simply run the script `docker/build.sh` to create a docker image called `myochallengeeval_mani_agent`. The image is fairly large because it was built on top of an image provided by Nvidia to run the library IsaacGym.
+Simply run the script `docker/build.sh` to create a docker image called `myochallengeeval_mani_agent`. The image is fairly large (~20 Gb) because it was built on top of an image provided by Nvidia to run the library IsaacGym.
 
 Once the image is created, run the script `docker/test.sh` to execute the script `src/test_submission.py` inside a container created from the image `myochallengeeval_mani_agent:latest`. The script `src/test_submission.py` executes 1000 test episode in the environment `myoChallengeRelocateP2-v0` with seed=0. The performance should match exactly the one we obtained, namely, 0.817 (817 episodes solved out of 1000).
 
