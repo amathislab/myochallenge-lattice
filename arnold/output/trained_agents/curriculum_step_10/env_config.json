@@ -1,0 +1,102 @@
+{
+    "env_name": "CustomRelocateEnvPhase2",
+    "seed": 456,
+    "weighted_reward_keys": {
+        "done": 0,
+        "act_reg": 0.0,
+        "sparse": 0.0,
+        "solved": 20.0,
+        "alive": 0.0,
+        "pos_dist": 10.0,
+        "rot_dist": 0.0,
+        "reach_dist": 0.0,
+        "reach_dist_xy": 0,
+        "reach_dist_z": 0,
+        "lift_bonus": 0.0,
+        "pos_dist_z": 0.0,
+        "max_app": 0.0,
+        "contact_hand_obj": 0.0,
+        "rot_palm_obj": 0,
+        "min_app": 0,
+        "close_bonus": 0,
+        "obj_shift": 0.0,
+        "palm_dist": 1.0,
+        "open_hand": 0.0,
+        "tip_dist": 0.1
+    },
+    "pos_th": 0.1,
+    "rot_th": Infinity,
+    "drop_th": 0.5,
+    "lift_th": 0.01,
+    "reach_z_offset": 0.0,
+    "pos_z_offset": 0.4,
+    "target_xyz_range": {
+        "high": [
+            0.3,
+            -0.1,
+            1.05
+        ],
+        "low": [
+            0.0,
+            -0.45,
+            0.9
+        ]
+    },
+    "target_rxryrz_range": {
+        "high": [
+            0.2,
+            0.2,
+            0.2
+        ],
+        "low": [
+            -0.2,
+            -0.2,
+            -0.2
+        ]
+    },
+    "obj_rel_target_pos": [
+        0.0,
+        0.0,
+        0.0
+    ],
+    "obj_xyz_range": {
+        "high": [
+            0.1,
+            -0.15,
+            1.0
+        ],
+        "low": [
+            -0.1,
+            -0.35,
+            1.0
+        ]
+    },
+    "obj_geom_range": {
+        "high": [
+            0.03,
+            0.03,
+            0.03
+        ],
+        "low": [
+            0.01,
+            0.01,
+            0.01
+        ]
+    },
+    "obj_mass_range": {
+        "high": 0.3,
+        "low": 0.04
+    },
+    "obj_friction_range": {
+        "high": [
+            1.3,
+            0.007,
+            0.00013
+        ],
+        "low": [
+            0.7,
+            0.003,
+            7e-05
+        ]
+    }
+}

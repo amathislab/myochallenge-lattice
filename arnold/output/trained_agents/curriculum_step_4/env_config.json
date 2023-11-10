@@ -1,0 +1,62 @@
+{
+    "env_name": "CustomRelocateEnvPhase2",
+    "seed": 0,
+    "weighted_reward_keys": {
+        "done": 0,
+        "act_reg": 0.0,
+        "sparse": 0.0,
+        "solved": 0.0,
+        "alive": 0.0,
+        "pos_dist": 0.0,
+        "rot_dist": 0.0,
+        "reach_dist": 0.0,
+        "reach_dist_xy": 0,
+        "reach_dist_z": 0,
+        "lift_bonus": 0.0,
+        "pos_dist_z": 10.0,
+        "max_app": 0.0,
+        "contact_hand_obj": 0.0,
+        "rot_palm_obj": 0,
+        "min_app": 0,
+        "close_bonus": 0,
+        "obj_shift": 0.0,
+        "palm_dist": 0.1,
+        "open_hand": 0.0,
+        "tip_dist": 1.0
+    },
+    "pos_th": 0.075,
+    "rot_th": 0.262,
+    "drop_th": 0.5,
+    "lift_th": 0.08,
+    "reach_z_offset": 0.0,
+    "pos_z_offset": 1.4,
+    "target_xyz_range": {
+        "high": [
+            0.2,
+            -0.35,
+            0.9
+        ],
+        "low": [
+            0.0,
+            -0.1,
+            0.9
+        ]
+    },
+    "target_rxryrz_range": {
+        "high": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "low": [
+            0.0,
+            0.0,
+            0.0
+        ]
+    },
+    "obj_rel_target_pos": [
+        0.0,
+        0.0,
+        0.0
+    ]
+}
