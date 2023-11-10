@@ -36,7 +36,7 @@ The script `docker/train.sh` can be used to run a training experiment. We set it
 ### Key components of the final model
 
 1. On-policy learning with Recurrent PPO
-2. Exploration with LATTICE to exploit correlations in the action space
+2. Exploration with Lattice to exploit correlations in the action space
 3. Curriculum learning to guide and stabilize training throughout
 4. Enlarging the hyperparameter space to achieve a more robust policy
 
@@ -46,7 +46,7 @@ The first key component in our model is the recurrent units in both the actor an
 
 #### 2. Exploration with Lattice
 
-The second key component we used was Lattice, as exploration strategy recently developed by our team. By injecting noise in the latent space, Lattice can encourage correlations across actuators that are beneficial for task performance and energy efficiency, especially for high-dimensional musculoskeletal models with redundant actuators. Given the complexity of the task, Lattice allowed us to efficiently explore the state space. Since we found little evidence that using state-dependent perturbations is beneficial with PPO, we used an unpublished version of Lattice which does not make the noise dependent on the current state. However, it still uses the linear transformation implemented by the last layer of the policy netwoek to induce correlated noise across muscles.
+The second key component we used was Lattice, as exploration strategy recently developed by our team. By injecting noise in the latent space, Lattice can encourage correlations across actuators that are beneficial for task performance and energy efficiency, especially for high-dimensional musculoskeletal models with redundant actuators. Given the complexity of the task, Lattice allowed us to efficiently explore the state space. Since we found little evidence that using state-dependent perturbations is beneficial with PPO, we used an unpublished version of Lattice which does not make the noise dependent on the current state. However, it still uses the linear transformation implemented by the last layer of the policy network to induce correlated noise across muscles.
 
 #### 3. Curriculum learning
 
@@ -67,7 +67,7 @@ The final insight we tried to incorporate consisted in enlarging the hyperparame
 
 For the very final submission that scored 0.343, we used our final robust policy that can be found [here](output/trained_agents/curriculum_step_10/).
 
-Further details about the curriculum steps and architeture can be found in [appendix](docs/appendix.md)
+Further details about the curriculum steps and architeture can be found in [appendix](docs/appendix.md).
 
 ### 5. Minimizing unnecessary muscle effort
 
