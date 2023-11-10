@@ -41,26 +41,26 @@ The script `docker/train.sh` can be used to run a training experiment. We set it
 
 #### 1. Recurrent LSTM layers
 
-The first key component in our model is the recurrent units in both the actor and critic networks of our on-policy algorithm. The first layer in each was an LSTM layer, which was crucial to deal with partial observations not only because the environment had no velocity or acceleration information, but also because the actions have really long-term consequences - effects of actions last dozens of timesteps after it has been originally executed.
+The first key component in our model is the recurrent units in both the actor and critic networks of our on-policy algorithm. The first layer was an LSTM layer, which was crucial to deal with the partial observability of the environment. Especially in Phase II, the shape, mass and friction of the object change every episode and do not figure in the observation. Recurrency enables the policy to store memory of the past observations, which might be aggregate to infer such unobservable quantities.
 
-#### 2. Exploration with LATTICE
+#### 2. Exploration with Lattice
 
-The second key component we used was LATTICE, a new exploration strategy developed by our team. By injecting noise in the latent space, LATTICE can encourage correlations across actuators that are beneficial for task performance and energy efficiency, especially for high-dimensional musculoskeletal models with redundant actuators. Given the complexity of the task, LATTICE allowed us to efficiently explore the state space.
+The second key component we used was Lattice, as exploration strategy recently developed by our team. By injecting noise in the latent space, Lattice can encourage correlations across actuators that are beneficial for task performance and energy efficiency, especially for high-dimensional musculoskeletal models with redundant actuators. Given the complexity of the task, Lattice allowed us to efficiently explore the state space. Since we found little evidence that using state-dependent perturbations is beneficial with PPO, we used an unpublished version of Lattice which does not make the noise dependent on the current state. However, it still uses the linear transformation implemented by the last layer of the policy netwoek to induce correlated noise across muscles.
 
 #### 3. Curriculum learning
 
 Third, we used a curriculum of training that gradually increased the difficulty of the task. For both phase 1 and phase 2, we used the same training curriculum steps:
 
-- Reach. Train the agent to minimize the distance between the palm of the hand and the object position. This step could be splitted in substeps such as minimizing first the x-y distance by encouraging the opening of the hand (maximizing the distance between fingertips and palm hand) and then minimizing the z distance as well.
-- Grasp & move. Train the agent to minimize the distance between the object position and the target position. In this case, the z-target position was set to be at 40 cm higher than the z-final goal position. Additionally, the x-y position can be the same as the initial object position or can equal the final goal position thereby already minimizing the distance to the target 
-- Insert. Train the agent to maximize the solved fraction by inserting the object in the box. While solving the task, we kept (with a lower weight) the part of the reward correlated to the grasp curriculum stage to encourage the policy to continuously try to grasp difficult objects.
+* **Reach.** Train the agent to minimize the distance between the palm of the hand and the object position. This step could be splitted in substeps such as minimizing first the x-y distance by encouraging the opening of the hand (maximizing the distance between fingertips and palm hand) and then minimizing the z distance as well.
+* **Grasp & move.** Train the agent to minimize the distance between the object position and the target position. In this case, the z-target position was set to be at 40 cm higher than the z-final goal position. Additionally, the x-y position can be the same as the initial object position or can equal the final goal position thereby already minimizing the distance to the target.
+* **Insert.** Train the agent to maximize the solved fraction by inserting the object in the box. While solving the task, we kept (with a lower weight) the part of the reward correlated to the grasp curriculum stage to encourage the policy to continuously try to grasp difficult objects.
 
-Directly transferring the policy of phase 1 to phase 2 was not possible due to the introduction of complex objects and targets. Therefore, we repeated the same curriculum steps with a longer training for phase 2 but we encouraged a more diverse and efficient exploration by using LATTICE. The full list of hyperparameters and links to the models are in the appendix.
+Directly transferring the policy of phase 1 to phase 2 was not possible due to the introduction of complex objects and targets. Therefore, we repeated the same curriculum steps with a longer training for phase 2 but we encouraged a more diverse and efficient exploration by using Lattice. We include all the details about the hyperparameters used for the different steps of the curriculum in the files `output/trained_agents/curriculum_step_<step_number>/args.json`. The environment configuration and the model configuration are also stored separately in `output/trained_agents/curriculum_step_<step_number>/env_config.json` and `output/trained_agents/curriculum_step_<step_number>/model_config.json`, respectively. Please note that throughout the curriculum we also made small modifications to the environment, which break the compatibility of the solutions up to step 6 with the final environment of phase 2. To allow the reader to evaluate steps 1-6 in the environments where they were trained, and potentially reproduce all the training steps, we include the version of `relocate.py` and `main_challenge_manipulation_phase2.py` used for the training in the corresponding folder.
 
 #### 4. Enlarging the hyperparameter space
 
-The final insight we tried to incorporate consisted in enlarging the hyperparameter space to obtain a more robust policy. Indeed, we observed that the policy almost reached convergence but it was struggling with objects at the extrame of the range (e.g. small objects). To this end, we made the task harder by increasing the range of shape, friction, mass object hyperparameters. Since part of the reward still consisted to grasp the object and lead it on top of the box, it allowed the policy to continue maximing the task performance while learning to grasp objects at the "extreme" of the hyperparemeter space.
- 
+The final insight we tried to incorporate consisted in enlarging the hyperparameter space to obtain a more robust policy. Indeed, we observed that the policy almost reached convergence but it was struggling with objects at the extrame of the range (e.g. small objects). To this end, we made the task harder by increasing the range of shape, friction, mass object hyperparameters. Since part of the reward still consisted to grasp the object and lead it on top of the box, it allowed the policy to continue maximing the task performance while learning to grasp objects at the "extreme" of the hyperparemeter space. Furthermore, we hypothesized that the submissions would be tested on out of distribution objects and targets. Indeed, while our best performing policies obtained scores above 80% in our local tests, they scored just above 30% upon submission.
+
 For the very final submission that scored 0.343, we used our final robust policy that can be found [here](output/trained_agents/curriculum_step_10/).
 
 Further details about the curriculum steps and architeture can be found in [appendix](docs/appendix.md)
@@ -71,7 +71,7 @@ If you want to read more about our solution, check out our [NeurIPS work](https:
 
 If you use our code, or ideas please cite:
 
-```
+``` latex
 @article{chiappa2023latent,
   title={Latent exploration for reinforcement learning},
   author={Chiappa, Alberto Silvio and Vargas, Alessandro Marin and Huang, Ann Zixiang and Mathis, Alexander},
