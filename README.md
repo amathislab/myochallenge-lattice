@@ -30,3 +30,17 @@ By default, the script `src/test_submission.py` tests the last step of the curri
 
 The script `docker/train.sh` can be used to run a training experiment. We set it so that the training starts from checkpoint 9 of the training curriculum. In the current state, the training will not reproduce the training experiment which lead to checkpoint 10, as the script is not loading the arguments from `output/trained_agents/curriculum_step_10/args.json`. In fact, for the challenge, we used a cluster which accepts parameters in a different format. We did not adapt this part of the code to run in the docker container of the submission. Furthermore, for the challenge trainings we used 250 environments in parallel, requiring substantial RAM resources, unlikely to be available in a standard workstation.
 
+## Further context and literature
+
+If you want to read more about our solution, check out our [NeurIPS work](https://arxiv.org/abs/2305.20065)! 
+
+If you use our code, or ideas please cite:
+
+```
+@article{chiappa2023latent,
+  title={Latent exploration for reinforcement learning},
+  author={Chiappa, Alberto Silvio and Vargas, Alessandro Marin and Huang, Ann Zixiang and Mathis, Alexander},
+  journal={arXiv preprint arXiv:2305.20065},
+  year={2023}
+}
+```
