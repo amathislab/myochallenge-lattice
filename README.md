@@ -69,6 +69,18 @@ For the very final submission that scored 0.343, we used our final robust policy
 
 Further details about the curriculum steps and architeture can be found in [appendix](docs/appendix.md)
 
+### 5. Minimizing unnecessary muscle effort
+
+We observed that unnecessary movement of the agent took place in the following cases:
+
+* The object was already placed inside the target box
+* The agent had not managed to lift the object and had not chance to complete the task
+
+To reduce the global effor of the policy we operated the following post-training modifications to the policy:
+
+* After 5 consecutive steps in which the object is in the neighborhood of the target (i.e., solved is True), the policy outputs constant -1 actions for all muscles (minimum possible activation).
+* After 90 steps from the beginning of the episode (i.e., 2/3 of the full duration), if the object is still in contact with the table, the agent gives up and the policy outputs constant -1 actions for all muscles (minimum possible activation). In fact, we found that in almost no case the agent can successfully place the object inside the target box if it cannot lift it in the first 2/3 of the episode. More specifically, the previous modifications cause a decrease of 0.3% of the success rate in our tests and of 0% in the submission score. On the other hand, they caused a reduction of 30% of the effort.
+
 ## Further context and literature
 
 If you want to read more about our solution, check out our [NeurIPS work](https://arxiv.org/abs/2305.20065)! 
