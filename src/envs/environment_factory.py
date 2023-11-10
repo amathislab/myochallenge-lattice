@@ -127,14 +127,6 @@ class EnvironmentFactory:
         elif env_name == "MuscleLegsWalkEnv":
             return gym.make("MuscleLegWalk-v0", **kwargs)
         
-        # Isaacgym environments
-        elif env_name == "IsaacgymHandReach" :
-            return ShadowHandReachEnv(**kwargs)
-        elif env_name == "IsaacgymFingerReach" :
-            return ShadowHandFingerReachEnv(**kwargs)
-        elif env_name == "IsaacgymReorient" :
-            return ShadowHandReorientEnv(**kwargs)
-
         # PyBullet environments
         elif env_name == "WalkerBulletEnv":
             return gym.make("Walker2DBulletEnv-v0", **kwargs)

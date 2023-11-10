@@ -32,7 +32,7 @@ def get_custom_observation(rc):
     # add new features here that can be computed from obs_dict
     # obs_dict['qpos_without_xy'] = np.array(obs_dict['internal_qpos'][2:35].copy())
 
-    return rc.obsdict2obsvec(obs_dict, obs_keys)
+    return rc.obsdict2obsvec(obs_dict, obs_keys), obs_dict
 
 
 time.sleep(60)
@@ -47,7 +47,7 @@ else:
 
 
 # compute correct observation space
-shape = get_custom_observation(rc).shape
+shape = get_custom_observation(rc)[0].shape
 rc.set_observation_space(shape)
 
 
@@ -77,12 +77,9 @@ class Agent:
         self.episode_starts = False
         return action
 
-EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output/training/mani/_seed_123_max_steps_150_reg_0.1__solved_20.0_pos_dist_10.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_225")
-CHECKPOINT_NUM = 1124000000
+EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output", "trained_agents", "curriculum_step_10")
+CHECKPOINT_NUM = 1432000000
 
-# Current best
-# EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output/training/mani/_seed_123_max_steps_150_reg_0.1__solved_10.0_pos_dist_0.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_228")
-# CHECKPOINT_NUM = 1102000000
 
 if __name__ == "__main__":
     
@@ -102,6 +99,7 @@ if __name__ == "__main__":
     while not flag_completed:
         flag_trial = None # this flag will detect the end of an episode/trial
         counter = 0
+        success = 0
         repetition +=1
         while not flag_trial :
 
@@ -111,11 +109,17 @@ if __name__ == "__main__":
 
             ################################################
             ### B - HERE the action is obtained from the policy and passed to the remote environment
-            obs = get_custom_observation(rc)
+            obs, obs_dict = get_custom_observation(rc)
             if counter == 0:
                 pi.reset()
                 
             action = pi.get_action(obs)
+            if (counter > 90) and (obs_dict['obj_pos'][2] < 1.01):
+                action = -1*np.ones_like(action)
+            if np.abs(np.linalg.norm(obs_dict['pos_err'], axis=-1)) < 0.1:
+                success += 1
+            if success >= 5:
+                action = -1*np.ones_like(action)
             ################################################
 
             ## gets info from the environment

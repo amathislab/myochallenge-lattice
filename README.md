@@ -1,72 +1,29 @@
-[![Supported by MyoSuite](https://img.shields.io/static/v1?label=Supported%20by&message=MyoSuite&color=informational&link=https://github.com/facebookresearch/myosuite)](https://github.com/facebookresearch/myosuite)
-[![Slack](https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white)](https://myosuite.slack.com)
-[![Twitter Follow](https://img.shields.io/twitter/follow/MyoSuite?style=social)](https://twitter.com/MyoSuite)
+# MyoChallenge 2023 - Team Lattice
 
-# 2023 NeurIPS - MyoChallenge
+Team members: Alessandro Marin Vargas, Alberto Chiappa, Alexander Mathis
 
-<p align="center">
-  <img src='./images/myochallenges.png' alt="teaser results" width="50%"/>
-  <p align="center"><i>MyoChallenge Tasks</i></p>
-</p>
+## Solution ranking 1st in the Relocate task
 
-Welcome to the [**2023 NeurIPS - MyoChallenge:  Towards Human-Level Dexterity and Agility**](https://sites.google.com/view/myosuite/myochallenge/myochallenge-2023).
+Here we present the strategy that was employed to achieve the #1 solution to the Relocate task (object manipulation track). We also include the code that was used to train it.
 
-This challenge consists of developing controllers for a physiologically realistic musculoskeletal models to solve dexterous manipulation and locomotion tasks:
+### Structure of the repository
 
-- A) **Manipulation task** -- Interact with an object and relocate it (`myoChallengeRelocateP1-v0`).
+* docker -> Files to create the docker image used to train and test the agents.
+* output -> Where the results of the trainings are stored.
+* src -> Source code.
+  * envs -> Custom environments (also not relevant for this challenge). The important one is the custom version of Relocate.
+  * metrics -> Custom callbacks to monitor the trining.
+  * models -> Modifications to the RL algorithms, including Lattice exploration.
+  * train -> Trainer classes to manage the trainings (not all relevant to this challenge).
+  * utils -> Utility functions for the submission.
+  * other scripts -> Run the training or test the agent.
 
-- B) **Locomotion/Chase-Tag task** -- Chase an opponent (`myoChallengeChaseTagP1-v0`).
+### How to run the #1 ranked solution to the object manipulation track
 
-They both are available with `myosuite==1.7.0`.
+We strongly recommend using docker for maximum reproducibility of the results. We provide the utility scripts `docker/build.sh` and `docker/test.sh` to create a docker image including all the necessary libraries and training/evaluation scripts.
 
-## Overview
-This repository is primarily centered around the submission of your solution, but we also created documentation to help you with:
-* Getting started - Take a look at the task [here](./tutorials/run_the_tasks.md) and refer to the [documentation](https://myosuite.readthedocs.io/en/latest/tutorials.html) for more details.
-* Run the pre-trained baselines: Look at the examples in this [repo](./tutorials/run_the_baselines.md), refer to the MyoSuite [documentation](https://myosuite.readthedocs.io/en/latest/baselines.html#dep-rl-baseline) for more baselines such as the reflex-controller or take a look at the [deprl](https://deprl.readthedocs.io/en/latest/myo_baselines.html#) docs.
-* Train an agent: We provide support for [stable-baselines](https://stable-baselines3.readthedocs.io/en/master/) and for [deprl](https://github.com/martius-lab/depRL) policies. Check out the respective documentation to train an agent.
-* Get ready for submission: We offer 2 approaches, [GitHub actions](#github-actions) or [DIY Submission](#diy-submission).
+Simply run the script `docker/build.sh` to create a docker image called `myochallengeeval_mani_agent`. The image is fairly large because it was built on top of an image provided by Nvidia to run the library IsaacGym.
 
-Checkout our colab tutorial if you want detailed step-by-step instructions for the entire process: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1Az9B0tOJmm962v1PjjRUTEQGCY5ebqQG)
+Once the image is created, run the script `docker/test.sh` to execute the script `src/test_submission.py` inside a container created from the image `myochallengeeval_mani_agent:latest`. The script `src/test_submission.py` executes 1000 test episode in the environment `myoChallengeRelocateP2-v0` with seed=0. The performance should match exactly the one we obtained, namely, 0.817 (817 episodes solved out of 1000).
 
-### Github actions 
-(detailed description [here](./tutorials/GHaction_Submission.md))
-1. [Register an account on Eval-AI](https://evalai.readthedocs.io/en/latest/participate.html) and obtain a `personal token` (on profile page -> "Get your Auth Token")
-2. [Clone this template](https://github.com/new?template_name=myoChallenge2023Eval&template_owner=MyoHub) and add the eval-ai `personal token` as "EvalAI_token" (in "Settings" -> "Secrets and variables" -> "Actions" -> "New repository secret")
-3. Trigger subission by selecting "Run workflow" in the ["Submission Loco Random" Action](https://github.com/MyoHub/myoChallenge2023Eval/actions/workflows/docker-submission_loco_random.yml)
-
-To customize your solution, please follow the [steps listed below](#step-by-step) below.
-
-### DIY Submission
-(detailed description [here](./tutorials/DIY_Submission.md))
-
-This solution requires to setup the project locally and compile docker containers. First install the [prerequisites](./tutorials/DIY_Submission.md/#Prerequisites) and then you can follow the [4 steps listed below](#step-by-step) to upload a solution in EvalAI. In short, the upload of a solution will follow this sequence: 
-
-``` bash
-# Step 1 and 2 -- Train your model and personalize the agent evaluation script.
-# Those steps can be skipped using the template agents e.g. agent/agent_mani_rotate.py, to test the submission system
-## Test that agent agent communicate with environment
-sh ./test/test_mani_agent.sh
-
-# Step 3: Build the docker container
-docker build -f docker/agent/Dockerfile_Mani . -t myochallengeeval_mani_agent
-
-# Step 4: Upload your policy
-evalai push myochallengeeval_mani_agent:latest --phase myochallenge2023-maniphase1-2105 --public
-
-```
-
-#### KNOWN ISSUES
-
-
-If error to install `grpcio`, a solution is to install it manually
-
-```bash
-pip install grpcio
-pip install grpcio-tools
-```
-
-It might be needed to make the path visible via:
-```bash
-export PYTHONPATH="./utils/:$PYTHONPATH"
-export PYTHONPATH="./agent/:$PYTHONPATH"
-```
+By default, the script `src/test_submission.py` tests the last step of the curriculum (from the folder `output/trained_agents/curriculum_step_10`). To test a different pretrained agent, please change the value of the variables `EXPERIMENT_PATH` and `CHECKPOINT_NUM` in the script `src/test_submission.py`. Make sure the checkpoint number corresponds to that of the curriculum step you want to load. Only the curriculum steps 8, 9 and 10 have been trained on the full Relocate task, so we expect the previous checkpoints to perform badly in the full environment.

@@ -8,22 +8,6 @@ from main_dataset_recurrent_ppo import load_vecnormalize, load_model
 from envs.environment_factory import EnvironmentFactory
 
 
-def get_custom_observation(rc):
-    """
-    Use this function to create an observation vector from the 
-    environment provided observation dict for your own policy.
-    By using the same keys as in your local training, you can ensure that 
-    your observation still works.
-    """
-    # example of obs_keys for deprl baseline
-    obs_keys = ['hand_qpos', 'hand_qvel', 'obj_pos', 'goal_pos', 'pos_err', 'obj_rot', 'goal_rot', 'rot_err']
-    obs_keys.append('act')
-
-    obs_dict = rc.get_obs_dict(rc.sim)
-
-    return rc.obsdict2obsvec(obs_dict, obs_keys)
-
-
 ################################################
 ## A -replace with your trained policy.
 ## HERE an example from a previously trained policy with deprl is shown (see https://github.com/facebookresearch/myosuite/blob/main/docs/source/tutorials/4a_deprl.ipynb)
@@ -51,8 +35,8 @@ class Agent:
         return action
 
 
-EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output/training/mani/_seed_123_max_steps_150_reg_0.1__solved_20.0_pos_dist_10.0_rot_dist_0.0_reach_dist_0.0_lift_0.0_max_app_0.0_reach_z_0.0_job_225")
-CHECKPOINT_NUM = 1124000000
+EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output", "trained_agents", "curriculum_step_10")
+CHECKPOINT_NUM = 1432000000
 
 if __name__ == "__main__":
     
@@ -63,7 +47,7 @@ if __name__ == "__main__":
     env_config = json.load(open(config_path, "r"))
     norm_env = EnvironmentFactory.create(**env_config)
 
-    env_config_base= {"env_name":"RelocateEnvPhase2", "seed":0}
+    env_config_base= {"env_name": "RelocateEnvPhase2", "seed":0}
     base_env = EnvironmentFactory.create(**env_config_base)
  
     envs = load_vecnormalize(EXPERIMENT_PATH, CHECKPOINT_NUM, norm_env)
@@ -76,15 +60,17 @@ if __name__ == "__main__":
     episodes = 0
     perfs = []
     solved = []
-    while not flag_completed:
+    efforts = []
+    while not flag_completed and repetition < 1000:
         flag_trial = None # this flag will detect the end of an episode/trial
         counter = 0
+        success = 0
         cum_reward = 0
         repetition +=1
-        while not flag_trial :
+        while not flag_trial:
 
             if counter == 0:
-                print('RELOCATE: Trial #'+str(repetition)+'Start Resetting the environment and get 1st obs')
+                print('RELOCATE: Trial #'+str(repetition))
                 # obs = rc.reset()
                 obs = base_env.reset()
 
@@ -94,6 +80,12 @@ if __name__ == "__main__":
                 pi.reset()
                 
             action = pi.get_action(obs)
+            if (counter > 90) and (base_env.obs_dict['obj_pos'][2] < 1.01):
+                action = -1*np.ones_like(action)
+            if np.abs(np.linalg.norm(base_env.obs_dict['pos_err'], axis=-1)) < 0.1:
+                success +=1
+            if success >= 5:
+                action = -1*np.ones_like(action)
             ################################################
 
             ## gets info from the environment
@@ -107,6 +99,7 @@ if __name__ == "__main__":
         print('Solved? ', info["rwd_dict"]['solved'])
         episodes+= 1
         perfs.append(cum_reward)
+        efforts.append(info["rwd_dict"]['act_reg'])
         if info["rwd_dict"]['solved'] == 1:
             solved.append(info["rwd_dict"]['solved'])
         else:
@@ -115,7 +108,9 @@ if __name__ == "__main__":
         if (episodes) % 10 == 0:
             perf_error = np.std(perfs) / np.sqrt(episodes + 1)
             solved_error = np.std(solved) / np.sqrt(episodes + 1)
+            effort_error = np.std(efforts) / np.sqrt(episodes + 1)
 
             print(f"\nEpisode {episodes+1}")
-            print(f"Average rew: {np.mean(perfs):.2f} +/- {perf_error:.2f}\n")
-            print(f"Average solved: {np.sum(solved)/(episodes):.2f}\n")
+            # print(f"Average rew: {np.mean(perfs):.2f} +/- {perf_error:.2f}\n")
+            print(f"Average effort: {np.abs(np.mean(efforts)):.4f}+/- {effort_error:.4f}\n")
+            print(f"Average solved: {np.sum(solved)/(episodes):.4f}\n")
