@@ -7,6 +7,8 @@ from definitions import ROOT_DIR
 from main_dataset_recurrent_ppo import load_vecnormalize, load_model
 from envs.environment_factory import EnvironmentFactory
 
+CHASE = 0
+EVADE = 1
 
 def normalize(vec):
     """return normalized vec"""
@@ -107,7 +109,7 @@ def get_target_pos(pose, opponent_pose, agent_vel, task):
     agent_or = normalize(agent_vel)
     theta = np.arctan2(agent_or[-1], agent_or[0]) # current orientation angle zero facing right
     vel = np.zeros(3)
-    if task == 'CHASE':
+    if task == CHASE:
         opponent_to_agent = vec_opponent_to_agent(pose, opponent_pose)
         dist_to_opp = np.linalg.norm(opponent_to_agent)
         if dist_to_opp < 5.0: # if close just set opponent as target
@@ -121,7 +123,7 @@ def get_target_pos(pose, opponent_pose, agent_vel, task):
             # self.target_y_vel = vel[1]
             # self.target_x_vel = vel[0]
             target_dist_scaling = 3.0
-    elif task == 'EVADE':
+    elif task == EVADE:
         vel = evade_vel(pose, opponent_pose, theta)
         # self.target_y_vel = vel[1]
         # self.target_x_vel = vel[0]
@@ -153,21 +155,25 @@ def get_custom_observation(rc, virtual_traj=False):
       'muscle_length',
       'muscle_velocity',
       'muscle_force',
+      'hfield',
+      'act',
       'task'
     ]
-    obs_keys.append('act')
 
     obs_dict = rc.get_obsdict()
     # add new features here that can be computed from obs_dict
     # obs_dict['qpos_without_xy'] = np.array(obs_dict['internal_qpos'][2:35].copy())
-    task = obs_dict[task]
+    task = int(obs_dict['task'])
+    agent_velocity = obs_dict["model_root_vel"].copy()
     if virtual_traj: # both cases virtual
-        new_target = get_target_pos(obs["model_root_pos"], obs["opponent_pose"])[:].copy() 
+        new_target = get_target_pos(obs_dict["model_root_pos"].copy(), obs_dict["opponent_pose"].copy(),agent_velocity, task)[:].copy() 
         obs_dict['opponent_pose'] = new_target
-    elif obs_dict['task'] == 'EVADE': # always for evade
-        new_target = get_target_pos(obs["model_root_pos"], obs["opponent_pose"])[:].copy() 
+    elif task == 1: # always for evade
+        new_target = get_target_pos(obs_dict["model_root_pos"].copy(), obs_dict["opponent_pose"].copy(), agent_velocity, task)[:].copy() 
         obs_dict['opponent_pose'] = new_target 
     return rc.obsdict2obsvec(obs_dict, obs_keys)
+
+
 
 
 time.sleep(60)
@@ -279,12 +285,15 @@ if __name__ == "__main__":
             obs = obs[:-1]
            
             if not virtual_traj:
-                if task == 'CHASE':
+                if task == CHASE:
                     # use chase environement 
                     pi = piChase
-                elif task == 'EVADE':
+                elif task == EVADE:
                     # use evade enc
                     pi = piEvade
+                else:
+                    raise ValueError("unknown task", task)
+
                 
             if counter == 0:
                 pi.reset()

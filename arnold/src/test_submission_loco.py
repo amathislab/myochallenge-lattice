@@ -132,8 +132,17 @@ def get_target_pos(pose, opponent_pose, agent_vel, task):
     # opponent_pose = self.opponent.get_opponent_pose()[:].copy()
     return virtual_target
 
+def obsdict2obsvec(obs_dict, ordered_obs_keys):
+    """
+    Create observation vector from obs_dict
+    """
+    obsvec = np.zeros(0)
+    for key in ordered_obs_keys:
+        obsvec = np.concatenate([obsvec, obs_dict[key].ravel()]) # ravel helps with images
+    return obsvec
 
-def get_custom_observation(rc, virtual_traj=False):
+
+def get_custom_observation(env, virtual_traj=False):
     """
     Use this function to create an observation vector from the 
     environment provided observation dict for your own policy.
@@ -153,21 +162,22 @@ def get_custom_observation(rc, virtual_traj=False):
       'muscle_length',
       'muscle_velocity',
       'muscle_force',
+      'hfield',
+      'act',
       'task'
     ]
-    obs_keys.append('act')
 
-    obs_dict = rc.get_obsdict()
+    # obs_dict = rc.get_obsdict()
+    obs_dict = env.get_obs_dict(env.sim)
     # add new features here that can be computed from obs_dict
     # obs_dict['qpos_without_xy'] = np.array(obs_dict['internal_qpos'][2:35].copy())
-    task = obs_dict[task]
     if virtual_traj: # both cases virtual
         new_target = get_target_pos(obs["model_root_pos"], obs["opponent_pose"])[:].copy() 
         obs_dict['opponent_pose'] = new_target
     elif obs_dict['task'] == 'EVADE': # always for evade
         new_target = get_target_pos(obs["model_root_pos"], obs["opponent_pose"])[:].copy() 
         obs_dict['opponent_pose'] = new_target 
-    return rc.obsdict2obsvec(obs_dict, obs_keys)
+    return obsdict2obsvec(obs_dict, obs_keys)
 
 
 
@@ -200,25 +210,63 @@ class Agent:
         return action
 
 
-EXPERIMENT_PATH = os.path.join(ROOT_DIR, "output/training/2023-11-04/CustomChaseTag_seed_15_x_-5.5_5.5_y_-5.5_5.5_dist_0.001_hip_0.0_period_100.0_alive_0.0_solved_1000.0_early_solved_0.0_joints_0.0_lose_-1.0_ref_0.01_heel_0.0_gait_l_0.9_gait_c_0.01_fix_0.1_ran_0.1_mov_0.8_traj_virtual_trajmyo-train-ad-p2-7-2-2")
-CHECKPOINT_NUM = 1180000000
+
+EXPERIMENT_PATH_VT = os.path.join(ROOT_DIR, "output/training/2023-11-04/CustomChaseTag_seed_15_x_-5.5_5.5_y_-5.5_5.5_dist_0.001_hip_0.0_period_100.0_alive_0.0_solved_1000.0_early_solved_0.0_joints_0.0_lose_-1.0_ref_0.01_heel_0.0_gait_l_0.9_gait_c_0.01_fix_0.1_ran_0.1_mov_0.8_traj_virtual_trajmyo-train-ad-p2-7-2-2")
+CHECKPOINT_NUM_VT = 1180000000
+
+EXPERIMENT_PATH_C = os.path.join(ROOT_DIR, "output/training/2023-11-04/CustomChaseTag_seed_13_x_-4.0_4.0_y_-6.0_1.0_dist_0.2_hip_0.0_period_100.0_alive_0.0_solved_0.0_early_solved_1.0_joints_0.0_lose_-10.0_ref_0.02_heel_0.0_gait_l_0.8_gait_c_0.01_fix_0.1_ran_0.45_mov_0.45_job_177")
+CHECKPOINT_NUM_C = 552000000
+
+EXPERIMENT_PATH_E = os.path.join(ROOT_DIR, "output/training/2023-11-04/CustomChaseTag_seed_15_x_-5.5_5.5_y_-5.5_5.5_dist_0.01_hip_0.0_period_100.0_alive_0.0_solved_1.0_early_solved_0.0_joints_0.0_lose_-10.0_ref_0.01_heel_0.0_gait_l_0.9_gait_c_0.01_fix_0.1_ran_0.45_mov_0.45_traj_virtual_trajmyo-train-ad-p2-6")
+CHECKPOINT_NUM_E = 1192000000
+
 
 if __name__ == "__main__":
     
-    print('Loaded this: ',EXPERIMENT_PATH,CHECKPOINT_NUM)
-    model = load_model(EXPERIMENT_PATH, CHECKPOINT_NUM)
+    virtual_traj = True # if True use same model for chase and evade
     
-    config_path = os.path.join(EXPERIMENT_PATH, "env_config.json")
-    env_config = json.load(open(config_path, "r"))
-    norm_env = EnvironmentFactory.create(**env_config)
+    if virtual_traj:
+        print('Loaded this: ',EXPERIMENT_PATH_VT,CHECKPOINT_NUM_VT)
+        model = load_model(EXPERIMENT_PATH_VT, CHECKPOINT_NUM_VT)
+        config_path = os.path.join(EXPERIMENT_PATH_VT, "env_config.json")
+        env_config = json.load(open(config_path, "r"))
+        base_env = EnvironmentFactory.create(**env_config)
+        envs = load_vecnormalize(EXPERIMENT_PATH_VT, CHECKPOINT_NUM_VT, base_env)
+        envs.training = False
+        pi = Agent(model, envs)
+    else: # two different
+        print('Loaded this: ',EXPERIMENT_PATH_C,CHECKPOINT_NUM_C)
+        modelC = load_model(EXPERIMENT_PATH_C, CHECKPOINT_NUM_C)
+        config_path = os.path.join(EXPERIMENT_PATH_C, "env_config.json")
+        env_config = json.load(open(config_path, "r"))
+        base_env = EnvironmentFactory.create(**env_config)
+        envsC = load_vecnormalize(EXPERIMENT_PATH_C, CHECKPOINT_NUM_C, base_env)
+        envsC.training = False
+        piChase = Agent(modelC, envsC)
 
-    env_config_base= {"env_name":"CustomChaseTag", "seed":0}
+        print('Loaded this: ',EXPERIMENT_PATH_E,CHECKPOINT_NUM_E)
+        modelE = load_model(EXPERIMENT_PATH_E, CHECKPOINT_NUM_E)
+        config_path = os.path.join(EXPERIMENT_PATH_E, "env_config.json")
+        env_config = json.load(open(config_path, "r"))
+        base_env = EnvironmentFactory.create(**env_config)
+        envsE = load_vecnormalize(EXPERIMENT_PATH_E, CHECKPOINT_NUM_E, base_env)
+        envsE.training = False
+        piEvade = Agent(modelE, envsE) 
+
+    # print('Loaded this: ',EXPERIMENT_PATH,CHECKPOINT_NUM)
+    # model = load_model(EXPERIMENT_PATH, CHECKPOINT_NUM)
+    
+    # config_path = os.path.join(EXPERIMENT_PATH, "env_config.json")
+    # env_config = json.load(open(config_path, "r"))
+    # norm_env = EnvironmentFactory.create(**env_config)
+
+    env_config_base= {"env_name":"ChaseTagEnvPhase2", "seed":0}
     base_env = EnvironmentFactory.create(**env_config_base)
  
-    envs = load_vecnormalize(EXPERIMENT_PATH, CHECKPOINT_NUM, norm_env)
-    envs.training = False
+    # envs = load_vecnormalize(EXPERIMENT_PATH, CHECKPOINT_NUM, norm_env)
+    # envs.training = False
 
-    pi = Agent(model, envs)
+    # pi = Agent(model, envs)
     ################################################
     flag_completed = None # this flag will detect then the whole eval is finished
     repetition = 0
@@ -235,12 +283,23 @@ if __name__ == "__main__":
             if counter == 0:
                 print('RELOCATE: Trial #'+str(repetition)+'Start Resetting the environment and get 1st obs')
                 # obs = rc.reset()
-                obs = base_env.reset()
+                base_env.reset()
 
             ################################################
             ### B - HERE the action is obtained from the policy and passed to the remote environment
-            # obs = get_custom_observation(rc)
+            obs = get_custom_observation(base_env)
             # breakpoint()
+            task = obs[-1]
+            obs = obs[:-1]
+
+            if not virtual_traj:
+                if task == 'CHASE':
+                    # use chase environement 
+                    pi = piChase
+                elif task == 'EVADE':
+                    # use evade enc
+                    pi = piEvade
+
             if counter == 0:
                 pi.reset()
                 
