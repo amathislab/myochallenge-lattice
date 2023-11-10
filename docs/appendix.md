@@ -1,14 +1,16 @@
 # Appendix
 
-## Curriculum 
+## Curriculum
 
 ![curriculum](images/tensorboard_logs_relocate_phase2.png)
 
 Reach:
+
 1. Minimize distance between palm and object (without moving the latter) while encouraging max. hand aperture.
 2. Minimize distance between palm and object and additional bonus for contact between hand and object.
 
 Grasp & move:
+
 3. Minimize distance between target position (x,y: initial object - z: 40 cm) while encouraging the contact between fingertips and objects.
 4. As step 3. but fixing the z-target position (x,y: initial object - z: initial object + 40 cm)
 5. As step 4. but needed to restart
@@ -16,12 +18,12 @@ Grasp & move:
 7. As step 6. but we fixed the key_frame id and trained for longer time
 
 Insert:
+
 8. We included the solved component in the reward.
 9. As step 8. but needed to restart
 10. Enlarge the hyperparameter object space to achieve a more robust policy
 
-
-All the trained models, environment configurations, main files, and tensorboard logs are all present in the [output/trained_agents](../output/trained_agents) folder. 
+All the trained models, environment configurations, main files, and tensorboard logs are all present in the [output/trained_agents](../output/trained_agents) folder.
 
 ## Architecture and algorithm
 
@@ -29,4 +31,4 @@ We use [RecurrentPPO from Stable Baselines 3](https://github.com/Stable-Baseline
 
 obs --> 256 LSTM --> 256 Linear --> 256 Linear --> output
 
-All the layers have ReLU activation functions and the output, of course, is the value for the critic and the 39-dimensional continuous actions for the actor.
+All the layers have ReLU activation functions and the output, of course, is the value for the critic and the 63-dimensional continuous actions for the actor.
