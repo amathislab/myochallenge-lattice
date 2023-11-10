@@ -69,7 +69,7 @@ For the very final submission that scored 0.343, we used our final robust policy
 
 Further details about the curriculum steps and architeture can be found in [appendix](docs/appendix.md).
 
-### 5. Minimizing unnecessary muscle effort
+#### 5. Minimizing unnecessary muscle effort
 
 We observed that unnecessary movement of the agent took place in the following cases:
 
