@@ -63,6 +63,8 @@ The final insight we tried to incorporate consisted in enlarging the hyperparame
  
 For the very final submission that scored 0.343, we used our final robust policy that can be found [here](output/trained_agents/curriculum_step_10/).
 
+Further details about the curriculum steps and architeture can be found in [appendix](docs/appendix.md)
+
 ## Further context and literature
 
 If you want to read more about our solution, check out our [NeurIPS work](https://arxiv.org/abs/2305.20065)! 
