@@ -1,25 +1,27 @@
 # MyoChallenge 2023 - Team Lattice
 
-Team members: Alessandro Marin Vargas, Alberto Chiappa, Alexander Mathis
+This is the repository of the winning solution to the [MyoChallenge 2023](https://sites.google.com/view/myosuite/myochallenge/myochallenge-2023) (object manipulation track) by team Lattice. Our team is named after the exploration method for high-dimensional environments, Lattice, introduced in our NeurIPS 2023 paper [Latent Exploration for Reiforcement Learning](https://arxiv.org/pdf/2305.20065.pdf).
+
+Our team comprised:
+* Alessandro Marin Vargas
+* Alberto Chiappa
+* Alexander Mathis
+
+At the time of this project, both Alberto Chiappa and Alessandro Marin Vargas were PhD students in the lab of Alexander Mathis at EPFL.
+
+Alberto Chiappa and Alexander Mathis were also part of the [winning team](https://github.com/amathislab/myochallenge) of the MyoChallenge 2022.
+
+Here is a sample of what our policy can do:
+
+![relocate](/data/images/myochallenge_2023.gif)
+
+We outperformed the other best solutions both in score and effort:
+
+<img src="/data/images/myochallenge_ranking.png" alt="drawing" width="70%"/>
 
 ## Solution ranking 1st in the Relocate task
 
-Here we present the strategy that was employed to achieve the #1 solution to the Relocate task (object manipulation track). We also include the code that was used to train it.
-
-### Structure of the repository
-
-* docker -> Files to create the docker image used to train and test the agents.
-* output -> Where the results of the trainings are stored.
-* docs -> Appendix and images.
-* src -> Source code.
-  * envs -> Custom environments (also not relevant for this challenge). The important one is the custom version of Relocate.
-  * metrics -> Custom callbacks to monitor the trining.
-  * models -> Modifications to the RL algorithms, including Lattice exploration.
-  * train -> Trainer classes to manage the trainings (not all relevant to this challenge).
-  * utils -> Utility functions for the submission.
-  * other scripts -> Run the training or test the agent.
-
-### How to run the #1 ranked solution to the object manipulation track
+### Reproduce the results
 
 We strongly recommend using docker for maximum reproducibility of the results. We provide the utility scripts `docker/build.sh` and `docker/test.sh` to create a docker image including all the necessary libraries and training/evaluation scripts.
 
@@ -28,6 +30,8 @@ Simply run the script `docker/build.sh` to create a docker image called `myochal
 Once the image is created, run the script `docker/test.sh` to execute the script `src/test_submission.py` inside a container created from the image `myochallengeeval_mani_agent:latest`. The script `src/test_submission.py` executes 1000 test episode in the environment `myoChallengeRelocateP2-v0` with seed=0. The performance should match exactly the one we obtained, namely, 0.817 (817 episodes solved out of 1000).
 
 By default, the script `src/test_submission.py` tests the last step of the curriculum (from the folder `output/trained_agents/curriculum_step_10`). To test a different pretrained agent, please change the value of the variables `EXPERIMENT_PATH` and `CHECKPOINT_NUM` in the script `src/test_submission.py`. Make sure the checkpoint number corresponds to that of the curriculum step you want to load. Only the curriculum steps 8, 9 and 10 have been trained on the full Relocate task, so we expect the previous checkpoints to perform badly in the full environment.
+
+### Train your policy
 
 The script `docker/train.sh` can be used to run a training experiment. We set it so that the training starts from checkpoint 9 of the training curriculum. In the current state, the training will not reproduce the training experiment which lead to checkpoint 10, as the script is not loading the arguments from `output/trained_agents/curriculum_step_10/args.json`. In fact, for the challenge, we used a cluster which accepts parameters in a different format. We did not adapt this part of the code to run in the docker container of the submission. Furthermore, for the challenge trainings we used 250 environments in parallel, requiring substantial RAM resources, unlikely to be available in a standard workstation.
 
@@ -80,6 +84,19 @@ To reduce the global effor of the policy we operated the following post-training
 
 * After 5 consecutive steps in which the object is in the neighborhood of the target (i.e., solved is True), the policy outputs constant -1 actions for all muscles (minimum possible activation).
 * After 90 steps from the beginning of the episode (i.e., 2/3 of the full duration), if the object is still in contact with the table, the agent gives up and the policy outputs constant -1 actions for all muscles (minimum possible activation). In fact, we found that in almost no case the agent can successfully place the object inside the target box if it cannot lift it in the first 2/3 of the episode. More specifically, the previous modifications cause a decrease of 0.3% of the success rate in our tests and of 0% in the submission score. On the other hand, they caused a reduction of 30% of the effort.
+
+### Structure of the repository
+
+* docker -> Files to create the docker image used to train and test the agents.
+* output -> Where the results of the trainings are stored.
+* docs -> Appendix and images.
+* src -> Source code.
+  * envs -> Custom environments (also not relevant for this challenge). The important one is the custom version of Relocate.
+  * metrics -> Custom callbacks to monitor the trining.
+  * models -> Modifications to the RL algorithms, including Lattice exploration.
+  * train -> Trainer classes to manage the trainings (not all relevant to this challenge).
+  * utils -> Utility functions for the submission.
+  * other scripts -> Run the training or test the agent.
 
 ## Further context and literature
 
