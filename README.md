@@ -3,13 +3,11 @@
 This is the repository of the winning solution to the [MyoChallenge 2023](https://sites.google.com/view/myosuite/myochallenge/myochallenge-2023) (object manipulation track) by team Lattice. Our team is named after the exploration method for high-dimensional environments, Lattice, introduced in our NeurIPS 2023 paper [Latent Exploration for Reiforcement Learning](https://arxiv.org/pdf/2305.20065.pdf).
 
 Our team comprised:
-* Alessandro Marin Vargas
-* Alberto Chiappa
+* Alessandro Marin Vargas (PhD student)
+* Alberto Chiappa (PhD student)
 * Alexander Mathis
 
-At the time of this project, both Alberto Chiappa and Alessandro Marin Vargas were PhD students in the lab of Alexander Mathis at EPFL.
-
-Alberto Chiappa and Alexander Mathis were also part of the [winning team](https://github.com/amathislab/myochallenge) of the MyoChallenge 2022.
+Alberto Chiappa and Alexander Mathis were also part of the [winning team](https://github.com/amathislab/myochallenge) of the MyoChallenge 2022. This work is already published, follow the link to this project to find the articles. Our 2023 winning solutions is as of yet unpublished (stay tuned for more). 
 
 Here is a sample of what our policy can do:
 
